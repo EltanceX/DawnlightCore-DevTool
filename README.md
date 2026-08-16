@@ -13,6 +13,8 @@ Version `0.1.0` provides local JSON Schema validation, field/value completion, h
 - `manifest/programs/*.json`;
 - `manifest/ui/settings.json`.
 
+The packaged extension requires VS Code `1.90` or newer.
+
 The MVP does not resolve pack-local IDs, Catalog IDs, cross-file references, shader code or production runtime diagnostics. Those capabilities are planned for a later language-server version.
 
 ## Local development
@@ -24,6 +26,17 @@ npm run package
 
 The generated VSIX can be installed from VS Code with **Extensions: Install from VSIX...**.
 
+For a clean-profile command-line install during local acceptance testing:
+
+```powershell
+code --user-data-dir .vscode-acceptance-user `
+  --extensions-dir .vscode-acceptance-extensions `
+  --install-extension .\dawnlight-shader-pack-tools-0.1.0.vsix --force
+```
+
+The extension is an offline declarative package: the VSIX contains the schemas
+and snippets and does not fetch runtime resources or start a background server.
+
 Run the local checks with:
 
 ```powershell
@@ -34,6 +47,9 @@ npm run test:vscode
 `test:vscode` is skipped by default. To run the real VS Code smoke test, set
 `DAWNLIGHT_RUN_VSCODE_TEST=1` and optionally `DAWNLIGHT_VSCODE_PATH` to the
 VS Code `code` executable.
+
+To validate the packaged VSIX itself in an isolated profile, run
+`npm run package` followed by `DAWNLIGHT_RUN_VSIX_TEST=1 npm run test:vsix`.
 
 ## Pack layout
 

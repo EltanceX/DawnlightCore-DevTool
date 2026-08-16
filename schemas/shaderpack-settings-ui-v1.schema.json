@@ -79,7 +79,11 @@
       "properties": {
         "id": {"type": "string", "minLength": 1},
         "option": {"$ref": "shaderpack-common.schema.json#/definitions/identifier"},
-        "widget": {"type": "string", "enum": ["toggle", "choice", "slider", "number", "text"]},
+        "widget": {
+          "type": "string",
+          "enum": ["toggle", "choice", "slider", "number", "text"],
+          "description": "The control widget used to edit the referenced option."
+        },
         "label": {"type": "string", "minLength": 1},
         "description": {"type": "string"},
         "unit": {"type": "string"},

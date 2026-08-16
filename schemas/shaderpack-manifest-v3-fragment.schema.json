@@ -102,7 +102,7 @@
           "required": ["id", "kind", "vertex", "fragment"],
           "properties": {
             "id": {"$ref": "#/definitions/id"},
-            "kind": {"const": "graphics"},
+            "kind": {"const": "graphics", "description": "A graphics program with vertex and fragment stages."},
             "vertex": {"$ref": "#/definitions/path"},
             "fragment": {"$ref": "#/definitions/path"},
             "geometry": {"$ref": "#/definitions/path"},
@@ -119,7 +119,7 @@
           "required": ["id", "kind", "compute"],
           "properties": {
             "id": {"$ref": "#/definitions/id"},
-            "kind": {"const": "compute"},
+            "kind": {"const": "compute", "description": "A compute-only program."},
             "compute": {"$ref": "#/definitions/path"},
             "compileMode": {"type": "string", "minLength": 1},
             "defines": {
@@ -184,7 +184,7 @@
       "required": ["id", "kind", "lifetime", "size", "format"],
       "properties": {
         "id": {"$ref": "#/definitions/id"},
-        "kind": {"const": "texture2D"},
+        "kind": {"const": "texture2D", "description": "A two-dimensional sampled texture resource."},
         "lifetime": {"type": "string", "enum": ["persistent", "history"]},
         "size": {"$ref": "#/definitions/size"},
         "format": {
@@ -202,7 +202,7 @@
       "required": ["id", "kind", "lifetime", "size", "format"],
       "properties": {
         "id": {"$ref": "#/definitions/id"},
-        "kind": {"const": "textureCube"},
+        "kind": {"const": "textureCube", "description": "A cube-map sampled texture resource."},
         "lifetime": {"const": "persistent"},
         "size": {"$ref": "#/definitions/size"},
         "format": {"type": "string", "enum": ["r8", "rgba8", "rgba16f", "rgba32f"]},
@@ -216,7 +216,7 @@
       "required": ["id", "kind", "lifetime"],
       "properties": {
         "id": {"$ref": "#/definitions/id"},
-        "kind": {"const": "buffer"},
+        "kind": {"const": "buffer", "description": "A structured or raw buffer resource."},
         "lifetime": {"const": "persistent"},
         "elementSize": {"type": "integer", "minimum": 1},
         "elementCount": {"type": "integer", "minimum": 1},
