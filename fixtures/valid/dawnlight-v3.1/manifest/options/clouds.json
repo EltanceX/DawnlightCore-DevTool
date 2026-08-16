@@ -1,0 +1,17 @@
+{
+  "options": [
+    {
+      "id": "dawnlight:clouds/enabled",
+      "type": "boolean",
+      "default": true,
+      "impact": ["program", "pipeline", "resources"]
+    },
+    {
+      "id": "dawnlight:clouds/quality",
+      "type": "string",
+      "default": "standard",
+      "allowed": ["low", "standard", "high"],
+      "impact": ["program"]
+    }
+  ]
+}

@@ -739,20 +739,20 @@ MVP Schema/snippets
 
 第一版只有同时满足以下条件才算完成：
 
-- [ ] `shaderpack.json` 能使用 root Schema 自动提示；
-- [ ] options/resources/programs/passes fragment 能使用 fragment Schema 自动提示；
-- [ ] `manifest/ui/settings.json` 能使用 Settings UI Schema 自动提示；
-- [ ] `type/kind/widget/lifetime/format/command` 等 enum 有补全；
-- [ ] 常用对象有 snippets；
-- [ ] JSON 和 JSONC 都能工作；
-- [ ] 必填、类型、unknown property 和 enum 错误有即时诊断；
-- [ ] 当前 Dawnlight v3.1、ToonLab 和 Minimal fixture 通过；
-- [ ] 普通 JSON 不被误应用 Dawnlight Schema；
-- [ ] 不依赖 .NET、游戏运行或网络；
-- [ ] VSIX 可在干净 VS Code profile 安装；
-- [ ] README 说明静态目录限制和 MVP 不支持项；
-- [ ] 测试断言具体 completion 候选，而不是只断言服务已启动；
-- [ ] 版本、Schema `$id`、CHANGELOG 和安装包内容已记录。
+- [x] `shaderpack.json` 能使用 root Schema 自动提示；
+- [x] options/resources/programs/passes fragment 能使用 fragment Schema 自动提示；
+- [x] `manifest/ui/settings.json` 能使用 Settings UI Schema 自动提示；
+- [x] `type/kind/widget/lifetime/format/command` 等 enum 有补全；
+- [x] 常用对象有 snippets；
+- [x] JSON 和 JSONC 都能工作；
+- [x] 必填、类型、unknown property 和 enum 错误有即时诊断；
+- [x] 当前 Dawnlight v3.1、ToonLab 和 Minimal fixture 通过；
+- [x] 普通 JSON 不被误应用 Dawnlight Schema；
+- [x] 不依赖 .NET、游戏运行或网络；
+- [x] VSIX 可在干净 VS Code profile 安装；
+- [x] README 说明静态目录限制和 MVP 不支持项；
+- [x] 测试断言具体 completion 候选，而不是只断言服务已启动；
+- [x] 版本、Schema `$id`、CHANGELOG 和安装包内容已记录。
 
 ## 14. 建议的第一批提交
 

@@ -25,9 +25,15 @@ suite('Dawnlight declarative schema smoke test', () => {
       errorsFor(document.uri).map(item => item.message).join('; '));
   });
 
-  test('ToonLab and all supported fragment roles have no schema errors', async () => {
+  test('pack snapshots and all supported fragment roles have no schema errors', async () => {
     const relativePaths = [
       'fixtures/valid/toonlab/shaderpack.json',
+      'fixtures/valid/dawnlight-v3.1/shaderpack.json',
+      'fixtures/valid/dawnlight-v3.1/manifest/options/clouds.json',
+      'fixtures/valid/dawnlight-v3.1/manifest/resources/cubemap.json',
+      'fixtures/valid/dawnlight-v3.1/manifest/programs/atmosphere-effects.json',
+      'fixtures/valid/dawnlight-v3.1/manifest/passes/atmosphere-shaft.json',
+      'fixtures/valid/dawnlight-v3.1/manifest/ui/settings.json',
       'fixtures/valid/minimal/manifest/options/basic.json',
       'fixtures/valid/minimal/manifest/resources/main.json',
       'fixtures/valid/minimal/manifest/programs/main.json',
@@ -45,6 +51,12 @@ suite('Dawnlight declarative schema smoke test', () => {
     const document = await openFixture('fixtures/invalid/wrong-type/shaderpack.json');
     assert.ok(errorsFor(document.uri).length > 0,
       'Expected at least one schema error for the wrong-type fixture.');
+  });
+
+  test('missing required root property produces a schema diagnostic', async () => {
+    const document = await openFixture('fixtures/invalid/missing-required/shaderpack.json');
+    assert.ok(errorsFor(document.uri).length > 0,
+      'Expected at least one schema error for the missing-required fixture.');
   });
 
   test('Hover exposes schema descriptions', async () => {
@@ -77,6 +89,45 @@ suite('Dawnlight declarative schema smoke test', () => {
       typeof item.label === 'string' ? item.label : item.label.label));
     assert.ok(labels.has('manifestVersion'), [...labels].join(', '));
     assert.ok(labels.has('fragments'), [...labels].join(', '));
+  });
+
+  test('packaged Schema exposes resource formats and every command type', async () => {
+    const cases = [
+      {
+        relativePath: 'fixtures/completion/manifest/resources/main.json',
+        source: '{\n  "resources": [{\n    "id": "example:resource",\n    "kind": "texture2D",\n    "lifetime": "persistent",\n    "size": {"mode": "viewport"},\n    "format": ""\n  }]\n}\n',
+        position: new vscode.Position(6, 15),
+        expected: ['rgba8', 'rgba16f', 'depth24']
+      },
+      {
+        relativePath: 'fixtures/completion/manifest/passes/main.json',
+        source: '{\n  "passes": [{\n    "id": "example:pass",\n    "programs": [],\n    "commands": [{"type": ""}]\n  }]\n}\n',
+        position: new vscode.Position(4, 27),
+        expected: ['fullscreen', 'compute', 'copy', 'clear', 'present', 'engineDraw', 'historyCommit']
+      }
+    ];
+    for (const item of cases) {
+      const uri = fixtureUri(item.relativePath);
+      const document = await vscode.workspace.openTextDocument(uri);
+      const editor = await vscode.window.showTextDocument(document);
+      await editor.edit(edit => edit.replace(
+        new vscode.Range(document.positionAt(0), document.positionAt(document.getText().length)),
+        item.source
+      ));
+      const completions = await vscode.commands.executeCommand(
+        'vscode.executeCompletionItemProvider', uri, item.position);
+      const labels = new Set((completions?.items || []).map(completion => {
+        const label = typeof completion.label === 'string' ? completion.label : completion.label.label;
+        try {
+          return JSON.parse(label);
+        } catch {
+          return label;
+        }
+      }));
+      for (const expected of item.expected) {
+        assert.ok(labels.has(expected), `${expected} missing from ${[...labels].join(', ')}`);
+      }
+    }
   });
 
   test('ordinary JSON is not assigned the Dawnlight root schema', async () => {

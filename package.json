@@ -28,7 +28,7 @@
     "lint": "node test/quality-check.cjs",
     "typecheck": "node test/quality-check.cjs",
     "test": "npm run test:unit",
-    "test:unit": "node --test test/schema.test.cjs test/completion.test.cjs test/file-match.test.cjs",
+    "test:unit": "node --test test/schema.test.cjs test/completion.test.cjs test/file-match.test.cjs test/snippet.test.cjs",
     "test:vscode": "node test/run-vscode.cjs",
     "test:vsix": "node test/run-vsix-acceptance.cjs",
     "test:all": "npm run test:unit && npm run test:vscode && npm run test:vsix"

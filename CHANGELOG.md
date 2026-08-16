@@ -5,6 +5,7 @@
 - Added syntax/JSON quality checks exposed as `lint` and `typecheck` scripts.
 - Added isolated VSIX installation acceptance testing with a clean VS Code profile.
 - Added end-to-end checks for ToonLab, all fragment roles, Hover, and ordinary JSON isolation.
+- Added a trimmed Dawnlight v3.1 snapshot, missing-required diagnostics, complete enum completion coverage, and schema-valid snippet expansion tests.
 - Recorded the packaged file manifest and internal `0.1.0` acceptance evidence.
 
 ## 0.1.0 - MVP-5

@@ -144,6 +144,34 @@
       "}"
     ]
   },
+  "Dawnlight textureCube resource": {
+    "scope": "json,jsonc",
+    "prefix": "dawnlight-texturecube",
+    "description": "Create a persistent textureCube resource.",
+    "body": [
+      "{",
+      "  \"id\": \"${1:example:pack/cubemap}\",",
+      "  \"kind\": \"textureCube\",",
+      "  \"lifetime\": \"persistent\",",
+      "  \"size\": {\"mode\": \"absolute\", \"width\": ${2:512}, \"height\": ${3:512}},",
+      "  \"format\": \"${4:rgba8}\"",
+      "}"
+    ]
+  },
+  "Dawnlight buffer resource": {
+    "scope": "json,jsonc",
+    "prefix": "dawnlight-buffer",
+    "description": "Create a persistent buffer resource.",
+    "body": [
+      "{",
+      "  \"id\": \"${1:example:pack/buffer}\",",
+      "  \"kind\": \"buffer\",",
+      "  \"lifetime\": \"persistent\",",
+      "  \"elementSize\": ${2:16},",
+      "  \"elementCount\": ${3:1}",
+      "}"
+    ]
+  },
   "Dawnlight graphics program": {
     "scope": "json,jsonc",
     "prefix": "dawnlight-graphics-program",
@@ -204,6 +232,40 @@
       "}"
     ]
   },
+  "Dawnlight copy command": {
+    "scope": "json,jsonc",
+    "prefix": "dawnlight-copy-command",
+    "description": "Create a resource copy command.",
+    "body": [
+      "{",
+      "  \"type\": \"copy\",",
+      "  \"source\": \"${1:example:pack/source}\",",
+      "  \"destination\": \"${2:example:pack/destination}\",",
+      "  \"aspect\": \"${3:color}\"",
+      "}"
+    ]
+  },
+  "Dawnlight clear command": {
+    "scope": "json,jsonc",
+    "prefix": "dawnlight-clear-command",
+    "description": "Create a clear command.",
+    "body": [
+      "{",
+      "  \"type\": \"clear\"",
+      "}"
+    ]
+  },
+  "Dawnlight present command": {
+    "scope": "json,jsonc",
+    "prefix": "dawnlight-present-command",
+    "description": "Create a present command.",
+    "body": [
+      "{",
+      "  \"type\": \"present\",",
+      "  \"program\": \"${1:example:pack/program}\"",
+      "}"
+    ]
+  },
   "Dawnlight history commit command": {
     "scope": "json,jsonc",
     "prefix": "dawnlight-history-commit-command",
@@ -224,6 +286,20 @@
       "  \"id\": \"${1:basic}\",",
       "  \"title\": \"${2:page.basic}\",",
       "  \"groups\": [",
+      "    ${0}",
+      "  ]",
+      "}"
+    ]
+  },
+  "Dawnlight settings group": {
+    "scope": "json,jsonc",
+    "prefix": "dawnlight-settings-group",
+    "description": "Create a Settings UI group.",
+    "body": [
+      "{",
+      "  \"id\": \"${1:visual}\",",
+      "  \"title\": \"${2:group.visual}\",",
+      "  \"controls\": [",
       "    ${0}",
       "  ]",
       "}"

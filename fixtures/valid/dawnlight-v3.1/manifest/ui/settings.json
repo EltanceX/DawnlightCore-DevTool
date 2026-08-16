@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "defaultLocale": "en-US",
+  "translations": {
+    "en-US": {
+      "page.clouds": "Clouds",
+      "group.clouds": "Cloud Rendering",
+      "option.clouds.enabled": "Enable Clouds"
+    }
+  },
+  "pages": [
+    {
+      "id": "clouds",
+      "title": "page.clouds",
+      "groups": [
+        {
+          "id": "cloud-rendering",
+          "title": "group.clouds",
+          "controls": [
+            {
+              "id": "clouds-enabled",
+              "option": "dawnlight:clouds/enabled",
+              "widget": "toggle",
+              "label": "option.clouds.enabled"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

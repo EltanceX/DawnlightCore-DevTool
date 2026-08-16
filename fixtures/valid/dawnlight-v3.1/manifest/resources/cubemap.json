@@ -1,0 +1,25 @@
+{
+  "resources": [
+    {
+      "id": "dawnlight:cubemap/texture",
+      "kind": "textureCube",
+      "lifetime": "persistent",
+      "size": {"mode": "absolute", "width": 512, "height": 512},
+      "format": "rgba8",
+      "sampling": {
+        "minFilter": "linear",
+        "magFilter": "linear",
+        "wrapS": "clampToEdge",
+        "wrapT": "clampToEdge",
+        "mipLevels": 1
+      },
+      "content": {
+        "type": "asset",
+        "faces": {
+          "positiveX": "assets/cubemap/positive_x.png",
+          "negativeX": "assets/cubemap/negative_x.png"
+        }
+      }
+    }
+  ]
+}

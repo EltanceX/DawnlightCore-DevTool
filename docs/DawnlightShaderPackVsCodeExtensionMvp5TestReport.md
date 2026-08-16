@@ -29,7 +29,7 @@ npm test
 - 验证 JSON/JSONC 使用同一份 snippets；
 - 验证静态 `fileMatch` 只覆盖约定目录，不匹配通用 `**/*.json`。
 
-当前结果：`11 passed`。
+当前结果：`21 passed`。
 
 ### 2.2 真实 VS Code smoke test
 

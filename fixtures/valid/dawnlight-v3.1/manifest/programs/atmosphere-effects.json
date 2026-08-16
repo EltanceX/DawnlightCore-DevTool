@@ -1,0 +1,16 @@
+{
+  "programs": [
+    {
+      "id": "dawnlight:atmosphere/sky_unlit_flat",
+      "kind": "graphics",
+      "vertex": "UnlitSky.vsh",
+      "fragment": "UnlitSky.psh",
+      "compileMode": "officialCompatible"
+    },
+    {
+      "id": "dawnlight:effects/firefly_compute_source",
+      "kind": "compute",
+      "compute": "FireflyShader.csh"
+    }
+  ]
+}

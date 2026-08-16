@@ -13,12 +13,18 @@ test('valid MVP fixtures pass their assigned schemas', () => {
   const ajv = createAjv();
   const cases = [
     ['shaderpack-manifest-v3-root.schema.json', 'fixtures/valid/minimal/shaderpack.json'],
+    ['shaderpack-manifest-v3-root.schema.json', 'fixtures/valid/dawnlight-v3.1/shaderpack.json'],
     ['shaderpack-manifest-v3-root.schema.json', 'fixtures/valid/toonlab/shaderpack.json'],
     ['shaderpack-manifest-v3-fragment.schema.json', 'fixtures/valid/minimal/manifest/options/basic.json'],
     ['shaderpack-manifest-v3-fragment.schema.json', 'fixtures/valid/minimal/manifest/resources/main.json'],
     ['shaderpack-manifest-v3-fragment.schema.json', 'fixtures/valid/minimal/manifest/programs/main.json'],
     ['shaderpack-manifest-v3-fragment.schema.json', 'fixtures/valid/minimal/manifest/passes/main.json'],
-    ['shaderpack-settings-ui-v1.schema.json', 'fixtures/valid/minimal/manifest/ui/settings.json']
+    ['shaderpack-settings-ui-v1.schema.json', 'fixtures/valid/minimal/manifest/ui/settings.json'],
+    ['shaderpack-manifest-v3-fragment.schema.json', 'fixtures/valid/dawnlight-v3.1/manifest/options/clouds.json'],
+    ['shaderpack-manifest-v3-fragment.schema.json', 'fixtures/valid/dawnlight-v3.1/manifest/resources/cubemap.json'],
+    ['shaderpack-manifest-v3-fragment.schema.json', 'fixtures/valid/dawnlight-v3.1/manifest/programs/atmosphere-effects.json'],
+    ['shaderpack-manifest-v3-fragment.schema.json', 'fixtures/valid/dawnlight-v3.1/manifest/passes/atmosphere-shaft.json'],
+    ['shaderpack-settings-ui-v1.schema.json', 'fixtures/valid/dawnlight-v3.1/manifest/ui/settings.json']
   ];
 
   for (const [schema, fixture] of cases) {
@@ -31,6 +37,7 @@ test('invalid MVP fixtures are rejected', () => {
   const ajv = createAjv();
   const cases = [
     ['shaderpack-manifest-v3-root.schema.json', 'fixtures/invalid/wrong-type/shaderpack.json'],
+    ['shaderpack-manifest-v3-root.schema.json', 'fixtures/invalid/missing-required/shaderpack.json'],
     ['shaderpack-manifest-v3-root.schema.json', 'fixtures/invalid/unknown-property/shaderpack.json'],
     ['shaderpack-manifest-v3-fragment.schema.json', 'fixtures/invalid/invalid-enum/manifest/resources/main.json']
   ];
@@ -65,7 +72,9 @@ test('schemas and snippets are valid JSON documents', () => {
 test('fixture inventory contains the documented MVP categories', () => {
   const expected = [
     'fixtures/valid/minimal/shaderpack.json',
+    'fixtures/valid/dawnlight-v3.1/shaderpack.json',
     'fixtures/valid/toonlab/shaderpack.json',
+    'fixtures/invalid/missing-required/shaderpack.json',
     'fixtures/invalid/wrong-type/shaderpack.json',
     'fixtures/invalid/unknown-property/shaderpack.json',
     'fixtures/invalid/invalid-enum/manifest/resources/main.json'

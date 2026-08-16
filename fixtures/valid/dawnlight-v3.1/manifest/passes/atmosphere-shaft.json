@@ -1,0 +1,39 @@
+{
+  "passes": [
+    {
+      "id": "dawnlight:shaft_filter",
+      "enabled": true,
+      "enabledWhen": [
+        {"option": "dawnlight:clouds/enabled", "equals": true}
+      ],
+      "stage": {
+        "template": "dawnlight:fullscreen",
+        "version": 1,
+        "target": "afterDraw",
+        "phase": "afterDraw"
+      },
+      "services": [
+        {"id": "dawnlight:scene_target", "version": 1, "mode": "required"}
+      ],
+      "programs": ["dawnlight:atmosphere/sky_unlit_flat"],
+      "commands": [
+        {
+          "type": "fullscreen",
+          "program": "dawnlight:atmosphere/sky_unlit_flat",
+          "targets": {
+            "colors": [
+              {
+                "location": 0,
+                "resource": "dawnlight:cubemap/texture",
+                "loadOp": "dontCare",
+                "storeOp": "store"
+              }
+            ]
+          }
+        }
+      ],
+      "inputs": [],
+      "outputs": ["dawnlight:cubemap/texture"]
+    }
+  ]
+}

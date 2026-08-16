@@ -37,10 +37,10 @@ function createLanguageService(schemaName, documentUri) {
   return service;
 }
 
-async function complete(schemaName, relativeUri, source) {
+async function complete(schemaName, relativeUri, source, languageId = 'jsonc') {
   const documentUri = pathToFileURL(path.join(root, relativeUri)).toString();
   const fixture = withCaret(source);
-  const document = TextDocument.create(documentUri, 'jsonc', 1, fixture.text);
+  const document = TextDocument.create(documentUri, languageId, 1, fixture.text);
   const service = createLanguageService(schemaName, documentUri);
   const jsonDocument = service.parseJSONDocument(document);
   const result = await service.doComplete(document, {
@@ -61,16 +61,29 @@ function labels(result) {
   }));
 }
 
-test('root property completion exposes Manifest metadata', async () => {
+test('JSON root property completion exposes Manifest metadata', async () => {
   const result = await complete(
     'shaderpack-manifest-v3-root.schema.json',
     'fixtures/completion/shaderpack.json',
-    '{\n  |\n}'
+    '{\n  |\n}',
+    'json'
   );
   const values = labels(result);
   assert.ok(values.has('manifestVersion'), [...values].join(', '));
   assert.ok(values.has('id'), [...values].join(', '));
   assert.ok(values.has('fragments'), [...values].join(', '));
+});
+
+test('fragment enum completion exposes option types', async () => {
+  const result = await complete(
+    'shaderpack-manifest-v3-fragment.schema.json',
+    'fixtures/completion/manifest/options/main.json',
+    '{\n  "options": [{\n    "id": "example:option",\n    "type": "|",\n    "default": true,\n    "impact": ["program"]\n  }]\n}'
+  );
+  const values = labels(result);
+  for (const expected of ['boolean', 'integer', 'number', 'string']) {
+    assert.ok(values.has(expected), `${expected} missing from ${[...values].join(', ')}`);
+  }
 });
 
 test('fragment const completion exposes resource kinds', async () => {
@@ -81,6 +94,56 @@ test('fragment const completion exposes resource kinds', async () => {
   );
   const values = labels(result);
   for (const expected of ['texture2D', 'textureCube', 'buffer']) {
+    assert.ok(values.has(expected), `${expected} missing from ${[...values].join(', ')}`);
+  }
+});
+
+test('fragment const completion exposes program kinds', async () => {
+  const result = await complete(
+    'shaderpack-manifest-v3-fragment.schema.json',
+    'fixtures/completion/manifest/programs/main.json',
+    '{\n  "programs": [{\n    "id": "example:program",\n    "kind": "|"\n  }]\n}'
+  );
+  const values = labels(result);
+  for (const expected of ['graphics', 'compute']) {
+    assert.ok(values.has(expected), `${expected} missing from ${[...values].join(', ')}`);
+  }
+});
+
+test('resource completion exposes lifetime values', async () => {
+  const result = await complete(
+    'shaderpack-manifest-v3-fragment.schema.json',
+    'fixtures/completion/manifest/resources/main.json',
+    '{\n  "resources": [{\n    "id": "example:resource",\n    "kind": "texture2D",\n    "lifetime": "|",\n    "size": {"mode": "viewport"},\n    "format": "rgba8"\n  }]\n}'
+  );
+  const values = labels(result);
+  for (const expected of ['persistent', 'history']) {
+    assert.ok(values.has(expected), `${expected} missing from ${[...values].join(', ')}`);
+  }
+});
+
+test('resource completion exposes texture formats', async () => {
+  const result = await complete(
+    'shaderpack-manifest-v3-fragment.schema.json',
+    'fixtures/completion/manifest/resources/main.json',
+    '{\n  "resources": [{\n    "id": "example:resource",\n    "kind": "texture2D",\n    "lifetime": "persistent",\n    "size": {"mode": "viewport"},\n    "format": "|"\n  }]\n}'
+  );
+  const values = labels(result);
+  for (const expected of ['r8', 'rgba8', 'rgba16f', 'depth24', 'depth32f']) {
+    assert.ok(values.has(expected), `${expected} missing from ${[...values].join(', ')}`);
+  }
+});
+
+test('pass completion exposes command types', async () => {
+  const result = await complete(
+    'shaderpack-manifest-v3-fragment.schema.json',
+    'fixtures/completion/manifest/passes/main.json',
+    '{\n  "passes": [{\n    "id": "example:pass",\n    "programs": [],\n    "commands": [{"type": "|"}]\n  }]\n}'
+  );
+  const values = labels(result);
+  for (const expected of [
+    'fullscreen', 'compute', 'copy', 'clear', 'present', 'engineDraw', 'historyCommit'
+  ]) {
     assert.ok(values.has(expected), `${expected} missing from ${[...values].join(', ')}`);
   }
 });

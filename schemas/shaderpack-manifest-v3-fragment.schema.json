@@ -388,6 +388,14 @@
       "additionalProperties": true
     },
     "command": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["fullscreen", "compute", "copy", "clear", "present", "engineDraw", "historyCommit"],
+          "description": "The pipeline command executed by this pass."
+        }
+      },
       "oneOf": [
         {"$ref": "#/definitions/fullscreenCommand"},
         {"$ref": "#/definitions/computeCommand"},

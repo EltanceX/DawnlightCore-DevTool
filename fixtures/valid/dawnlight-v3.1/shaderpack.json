@@ -1,0 +1,16 @@
+{
+  "sourceFormatVersion": 1,
+  "manifestVersion": 3,
+  "id": "dawnlight:dawnlight_v3_1",
+  "name": "Dawnlight v3.1 Contract Snapshot",
+  "version": "3.1",
+  "description": "Trimmed fixture derived from the current external shader pack.",
+  "shaderRoot": "shaders",
+  "settings": "manifest/ui/settings.json",
+  "fragments": [
+    "manifest/options/clouds.json",
+    "manifest/resources/cubemap.json",
+    "manifest/programs/atmosphere-effects.json",
+    "manifest/passes/atmosphere-shaft.json"
+  ]
+}

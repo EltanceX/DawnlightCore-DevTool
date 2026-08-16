@@ -10,7 +10,7 @@ MVP-6 验证可发布的 declarative VSIX，而不是开发目录中的临时文
 
 - 质量检查、Schema/补全单元测试和 VSIX 打包；
 - 干净 VS Code profile 安装 VSIX；
-- Minimal、ToonLab、options/resources/programs/passes 和 Settings UI 文件；
+- Minimal、Dawnlight v3.1、ToonLab、options/resources/programs/passes 和 Settings UI 文件；
 - Hover、错误诊断和普通 JSON 隔离；
 - 离线可用性和最终 VSIX 文件清单。
 
@@ -34,16 +34,20 @@ npm run test:vsix
 
 | 检查项 | 结果 |
 |---|---|
-| `npm run lint` | 通过，检查 9 个 CommonJS 文件和 30 个 JSON 文件 |
-| `npm run typecheck` | 通过，检查 9 个 CommonJS 文件和 30 个 JSON 文件；项目为 JavaScript/CJS，无 TypeScript 类型层 |
-| `npm test` | 通过，11/11 |
-| `npm run package` | 通过，VSIX 11 个文件，11.41 KB |
+| `npm run lint` | 通过，检查 10 个 CommonJS 文件和 40 个 JSON 文件 |
+| `npm run typecheck` | 通过，检查 10 个 CommonJS 文件和 40 个 JSON 文件；项目为 JavaScript/CJS，无 TypeScript 类型层 |
+| `npm test` | 通过，21/21 |
+| `npm run package` | 通过，VSIX 11 个文件，11.78 KB |
 | 干净 profile 安装 VSIX | 通过 |
 | Minimal root 无错误 | 通过 |
+| Dawnlight v3.1 精简合同快照无错误 | 通过 |
 | ToonLab root 无错误 | 通过 |
 | 四类 fragment 和 Settings UI 无错误 | 通过 |
 | 错误类型 fixture 产生诊断 | 通过 |
+| 缺少必填字段 fixture 产生诊断 | 通过 |
 | Manifest 字段 completion | 通过 |
+| option type、program/resource kind、lifetime、format、command 和 widget completion | 通过 |
+| 25 个必需 snippets 存在且展开后通过对应 Schema | 通过 |
 | Schema Hover 描述 | 通过 |
 | 普通 JSON 不应用 Dawnlight root Schema | 通过 |
 | 离线静态资源检查 | 通过，VSIX 不包含 node_modules、测试、fixture 或远程运行时资源 |
@@ -69,8 +73,8 @@ schemas/shaderpack-common.schema.json
 ```text
 文件：dawnlight-shader-pack-tools-0.1.0.vsix
 版本：0.1.0
-大小：11683 bytes
-SHA-256：0B5C9FA3ACFF6153BA16134E3ABDCA4F72967457A9913D8C336A9C8A871C31C8
+大小：12059 bytes
+SHA-256：205035F9205DD216DBC17667B6ED17CD0D49446D77F45203E020F23D6322765F
 ```
 
 VSIX 只包含扩展运行所需的 package、Schema、snippets、README、CHANGELOG 和许可证。测试源码、fixture、文档目录、依赖目录和临时文件均由 `.vscodeignore` 排除。
