@@ -251,15 +251,17 @@ MVP 只校验 predicate 结构，不验证 predicate 引用的 option 是否存�
 }
 ```
 
+第一版使用 Draft-07，以兼容 VS Code 内置 JSON Language Service；待后续 Schema 校验工具链统一后，再评估迁移到 Draft 2020-12。
+
 推荐使用：
 
-- Draft 2020-12；
+- Draft-07；
 - `$id`；
-- `$defs`；
+- `definitions`；
 - `oneOf`；
 - `const`；
 - `if/then/else`；
-- `unevaluatedProperties: false`。
+- `additionalProperties: false`。
 
 注意：`unevaluatedProperties: false` 会显著提高合同严谨性，但必须确认所有合法字段都已写入 Schema。任何尚未冻结的运行时扩展字段，不应在 MVP 中私自加入。
 
@@ -528,8 +530,8 @@ fixtures/completion/
 6. 添加 target/viewport/clear/load/store；
 7. 添加 settings translation/condition 基础定义；
 8. 为每个字段补齐 description、default、examples；
-9. 以 `unevaluatedProperties: false` 开始，所有未知字段都通过测试后再放宽；
-10. 使用 `$defs` 避免四个 Schema 复制结构。
+9. 以 `additionalProperties: false` 开始，所有未知字段都通过测试后再放宽；
+10. 使用 `definitions` 避免四个 Schema 复制结构。
 
 验收：
 
@@ -766,4 +768,3 @@ MVP Schema/snippets
 8. `Record MVP acceptance evidence`。
 
 每个提交都应保持扩展可以打包，最后一个提交只负责验收记录和文档，不集中补写所有测试。
-

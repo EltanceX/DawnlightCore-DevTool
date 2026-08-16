@@ -1,0 +1,470 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "shaderpack-manifest-v3-fragment.schema.json",
+  "title": "Dawnlight Manifest v3 Fragment",
+  "description": "A fragment containing ordered Manifest v3 definition arrays.",
+  "type": "object",
+  "properties": {
+    "options": {
+      "type": "array",
+      "items": {"$ref": "#/definitions/option"}
+    },
+    "resources": {
+      "type": "array",
+      "items": {"$ref": "#/definitions/resource"}
+    },
+    "programs": {
+      "type": "array",
+      "items": {"$ref": "#/definitions/program"}
+    },
+    "passes": {
+      "type": "array",
+      "items": {"$ref": "#/definitions/pass"}
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "id": {"$ref": "shaderpack-common.schema.json#/definitions/identifier"},
+    "path": {"$ref": "shaderpack-common.schema.json#/definitions/path"},
+    "version": {"$ref": "shaderpack-common.schema.json#/definitions/version"},
+    "impact": {"$ref": "shaderpack-common.schema.json#/definitions/impact"},
+    "condition": {"$ref": "shaderpack-common.schema.json#/definitions/condition"},
+    "semanticBinding": {"$ref": "shaderpack-common.schema.json#/definitions/semanticBinding"},
+    "resourceBinding": {"$ref": "shaderpack-common.schema.json#/definitions/resourceBinding"},
+    "targets": {"$ref": "shaderpack-common.schema.json#/definitions/targets"},
+    "viewport": {"$ref": "shaderpack-common.schema.json#/definitions/viewport"},
+    "stage": {"$ref": "shaderpack-common.schema.json#/definitions/stage"},
+    "option": {
+      "type": "object",
+      "required": ["id", "type", "default", "impact"],
+      "properties": {
+        "id": {"$ref": "#/definitions/id"},
+        "type": {
+          "type": "string",
+          "enum": ["boolean", "integer", "number", "string"]
+        },
+        "default": {},
+        "allowed": {
+          "type": "array",
+          "minItems": 1,
+          "items": {}
+        },
+        "min": {"type": "number"},
+        "max": {"type": "number"},
+        "step": {"type": "number", "exclusiveMinimum": 0},
+        "impact": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/definitions/impact"}
+        },
+        "enabledWhen": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/condition"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "defineValue": {
+      "oneOf": [
+        {"type": ["string", "number", "boolean", "null"]},
+        {
+          "type": "object",
+          "required": ["option"],
+          "properties": {
+            "option": {"$ref": "#/definitions/id"},
+            "map": {
+              "type": "object",
+              "minProperties": 1,
+              "additionalProperties": {"type": ["string", "null"]}
+            }
+          },
+          "additionalProperties": true
+        },
+        {
+          "type": "object",
+          "required": ["capability"],
+          "properties": {
+            "capability": {"$ref": "#/definitions/id"},
+            "map": {
+              "type": "object",
+              "additionalProperties": {"type": ["string", "null"]}
+            }
+          },
+          "additionalProperties": true
+        }
+      ]
+    },
+    "program": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["id", "kind", "vertex", "fragment"],
+          "properties": {
+            "id": {"$ref": "#/definitions/id"},
+            "kind": {"const": "graphics"},
+            "vertex": {"$ref": "#/definitions/path"},
+            "fragment": {"$ref": "#/definitions/path"},
+            "geometry": {"$ref": "#/definitions/path"},
+            "compileMode": {"type": "string", "minLength": 1},
+            "defines": {
+              "type": "object",
+              "additionalProperties": {"$ref": "#/definitions/defineValue"}
+            }
+          },
+          "additionalProperties": true
+        },
+        {
+          "type": "object",
+          "required": ["id", "kind", "compute"],
+          "properties": {
+            "id": {"$ref": "#/definitions/id"},
+            "kind": {"const": "compute"},
+            "compute": {"$ref": "#/definitions/path"},
+            "compileMode": {"type": "string", "minLength": 1},
+            "defines": {
+              "type": "object",
+              "additionalProperties": {"$ref": "#/definitions/defineValue"}
+            }
+          },
+          "additionalProperties": true
+        }
+      ]
+    },
+    "size": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["mode"],
+          "properties": {
+            "mode": {"enum": ["viewport", "output"]},
+            "scale": {"$ref": "shaderpack-common.schema.json#/definitions/vec2"}
+          },
+          "additionalProperties": true
+        },
+        {
+          "type": "object",
+          "required": ["mode", "width", "height"],
+          "properties": {
+            "mode": {"const": "absolute"},
+            "width": {"type": "integer", "minimum": 1},
+            "height": {"type": "integer", "minimum": 1}
+          },
+          "additionalProperties": true
+        }
+      ]
+    },
+    "sampling": {
+      "type": "object",
+      "properties": {
+        "minFilter": {"type": "string", "enum": ["nearest", "linear", "nearestMipmapNearest", "linearMipmapLinear"]},
+        "magFilter": {"type": "string", "enum": ["nearest", "linear"]},
+        "wrapS": {"type": "string", "enum": ["repeat", "clampToEdge", "mirroredRepeat"]},
+        "wrapT": {"type": "string", "enum": ["repeat", "clampToEdge", "mirroredRepeat"]},
+        "wrapR": {"type": "string", "enum": ["repeat", "clampToEdge", "mirroredRepeat"]},
+        "mipLevels": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": true
+    },
+    "content": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {"type": "string", "enum": ["asset", "service", "clear", "generated", "undefined"]},
+        "path": {"$ref": "#/definitions/path"},
+        "service": {"$ref": "#/definitions/id"},
+        "version": {"$ref": "#/definitions/version"},
+        "generator": {"$ref": "#/definitions/id"},
+        "faces": {"type": "object", "additionalProperties": {"$ref": "#/definitions/path"}}
+      },
+      "additionalProperties": true
+    },
+    "texture2D": {
+      "type": "object",
+      "required": ["id", "kind", "lifetime", "size", "format"],
+      "properties": {
+        "id": {"$ref": "#/definitions/id"},
+        "kind": {"const": "texture2D"},
+        "lifetime": {"type": "string", "enum": ["persistent", "history"]},
+        "size": {"$ref": "#/definitions/size"},
+        "format": {
+          "type": "string",
+          "enum": ["r8", "r16f", "r32f", "rg8", "rg16f", "rgba8", "rgba16f", "rgba32f", "depth24", "depth32f"]
+        },
+        "sampling": {"$ref": "#/definitions/sampling"},
+        "content": {"$ref": "#/definitions/content"},
+        "historyCapacity": {"type": "integer", "minimum": 2}
+      },
+      "additionalProperties": true
+    },
+    "textureCube": {
+      "type": "object",
+      "required": ["id", "kind", "lifetime", "size", "format"],
+      "properties": {
+        "id": {"$ref": "#/definitions/id"},
+        "kind": {"const": "textureCube"},
+        "lifetime": {"const": "persistent"},
+        "size": {"$ref": "#/definitions/size"},
+        "format": {"type": "string", "enum": ["r8", "rgba8", "rgba16f", "rgba32f"]},
+        "sampling": {"$ref": "#/definitions/sampling"},
+        "content": {"$ref": "#/definitions/content"}
+      },
+      "additionalProperties": true
+    },
+    "buffer": {
+      "type": "object",
+      "required": ["id", "kind", "lifetime"],
+      "properties": {
+        "id": {"$ref": "#/definitions/id"},
+        "kind": {"const": "buffer"},
+        "lifetime": {"const": "persistent"},
+        "elementSize": {"type": "integer", "minimum": 1},
+        "elementCount": {"type": "integer", "minimum": 1},
+        "content": {"$ref": "#/definitions/content"}
+      },
+      "additionalProperties": true
+    },
+    "resource": {
+      "oneOf": [
+        {"$ref": "#/definitions/texture2D"},
+        {"$ref": "#/definitions/textureCube"},
+        {"$ref": "#/definitions/buffer"}
+      ]
+    },
+    "service": {
+      "type": "object",
+      "required": ["id", "version", "mode"],
+      "properties": {
+        "id": {"$ref": "#/definitions/id"},
+        "version": {"$ref": "#/definitions/version"},
+        "mode": {"type": "string", "enum": ["required", "optional"]},
+        "enabledWhen": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/condition"}
+        }
+      },
+      "additionalProperties": true
+    },
+    "commandBase": {
+      "type": "object",
+      "properties": {
+        "type": {"type": "string"},
+        "program": {"$ref": "#/definitions/id"},
+        "bindings": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/resourceBinding"}
+        },
+        "semantics": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/semanticBinding"}
+        },
+        "targets": {"$ref": "#/definitions/targets"},
+        "viewport": {"$ref": "shaderpack-common.schema.json#/definitions/viewport"},
+        "clear": {"$ref": "shaderpack-common.schema.json#/definitions/clear"},
+        "groupsX": {"type": "integer", "minimum": 1},
+        "groupsY": {"type": "integer", "minimum": 1},
+        "groupsZ": {"type": "integer", "minimum": 1},
+        "barriers": {"type": "array", "items": {"type": "string"}},
+        "dispatch": {
+          "type": "object",
+          "properties": {
+            "groups": {
+              "type": "array",
+              "items": {"type": "integer", "minimum": 1},
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "barriers": {"type": "array", "items": {"type": "string"}}
+          },
+          "additionalProperties": true
+        },
+        "copy": {"type": "object", "additionalProperties": true},
+        "state": {"type": "object", "additionalProperties": true},
+        "provider": {
+          "type": "object",
+          "required": ["id", "version"],
+          "properties": {
+            "id": {"$ref": "#/definitions/id"},
+            "version": {"$ref": "#/definitions/version"}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": true
+    },
+    "fullscreenCommand": {
+      "allOf": [
+        {"$ref": "#/definitions/commandBase"},
+        {
+          "type": "object",
+          "required": ["type", "program"],
+          "properties": {
+            "type": {"const": "fullscreen"},
+            "program": {"$ref": "#/definitions/id"}
+          }
+        }
+      ]
+    },
+    "computeCommand": {
+      "allOf": [
+        {"$ref": "#/definitions/commandBase"},
+        {
+          "type": "object",
+          "required": ["type", "program"],
+          "properties": {
+            "type": {"const": "compute"},
+            "program": {"$ref": "#/definitions/id"},
+            "groupsX": {"type": "integer", "minimum": 1},
+            "groupsY": {"type": "integer", "minimum": 1},
+            "groupsZ": {"type": "integer", "minimum": 1},
+            "barriers": {"type": "array", "items": {"type": "string"}}
+          }
+        }
+      ]
+    },
+    "copyCommand": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {"const": "copy"},
+        "source": {"$ref": "#/definitions/id"},
+        "destination": {"$ref": "#/definitions/id"},
+        "aspect": {"type": "string", "enum": ["color", "depth"]},
+        "copy": {"type": "object", "additionalProperties": true}
+      },
+      "additionalProperties": true
+    },
+    "clearCommand": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {"const": "clear"},
+        "targets": {"$ref": "#/definitions/targets"},
+        "clear": {"$ref": "shaderpack-common.schema.json#/definitions/clear"}
+      },
+      "additionalProperties": true
+    },
+    "presentCommand": {
+      "allOf": [
+        {"$ref": "#/definitions/commandBase"},
+        {
+          "type": "object",
+          "required": ["type", "program"],
+          "properties": {
+            "type": {"const": "present"},
+            "program": {"$ref": "#/definitions/id"}
+          }
+        }
+      ]
+    },
+    "engineDrawCommand": {
+      "allOf": [
+        {"$ref": "#/definitions/commandBase"},
+        {
+          "type": "object",
+          "required": ["type", "provider"],
+          "properties": {
+            "type": {"const": "engineDraw"},
+            "provider": {
+              "type": "object",
+              "required": ["id", "version"],
+              "properties": {
+                "id": {"$ref": "#/definitions/id"},
+                "version": {"$ref": "#/definitions/version"}
+              }
+            },
+            "program": {"$ref": "#/definitions/id"}
+          }
+        }
+      ]
+    },
+    "historyCommitCommand": {
+      "type": "object",
+      "required": ["type", "resource"],
+      "properties": {
+        "type": {"const": "historyCommit"},
+        "resource": {"$ref": "#/definitions/id"}
+      },
+      "additionalProperties": true
+    },
+    "command": {
+      "oneOf": [
+        {"$ref": "#/definitions/fullscreenCommand"},
+        {"$ref": "#/definitions/computeCommand"},
+        {"$ref": "#/definitions/copyCommand"},
+        {"$ref": "#/definitions/clearCommand"},
+        {"$ref": "#/definitions/presentCommand"},
+        {"$ref": "#/definitions/engineDrawCommand"},
+        {"$ref": "#/definitions/historyCommitCommand"}
+      ]
+    },
+    "pass": {
+      "type": "object",
+      "required": ["id", "programs", "commands"],
+      "properties": {
+        "id": {"$ref": "#/definitions/id"},
+        "enabled": {"type": "boolean"},
+        "stage": {"$ref": "#/definitions/stage"},
+        "host": {
+          "type": "object",
+          "properties": {
+            "target": {"type": "string"},
+            "phase": {"type": "string"}
+          },
+          "additionalProperties": true
+        },
+        "enabledWhen": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/condition"}
+        },
+        "services": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/service"}
+        },
+        "programs": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/id"}
+        },
+        "commands": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/command"}
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {"$ref": "#/definitions/id"},
+              {
+                "type": "object",
+                "required": ["resource"],
+                "properties": {
+                  "resource": {"$ref": "#/definitions/id"},
+                  "view": {"$ref": "#/definitions/id"}
+                },
+                "additionalProperties": true
+              }
+            ]
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {"$ref": "#/definitions/id"},
+              {
+                "type": "object",
+                "required": ["resource"],
+                "properties": {
+                  "resource": {"$ref": "#/definitions/id"},
+                  "view": {"$ref": "#/definitions/id"}
+                },
+                "additionalProperties": true
+              }
+            ]
+          }
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

@@ -1,0 +1,277 @@
+{
+  "Dawnlight composed root": {
+    "scope": "json,jsonc",
+    "prefix": "dawnlight-root-composed",
+    "description": "Create a composed Dawnlight Manifest v3 root.",
+    "body": [
+      "{",
+      "  \"sourceFormatVersion\": 1,",
+      "  \"manifestVersion\": 3,",
+      "  \"id\": \"${1:example:my_pack}\",",
+      "  \"name\": \"${2:My Shader Pack}\",",
+      "  \"version\": \"${3:0.1.0}\",",
+      "  \"shaderRoot\": \"${4:shaders}\",",
+      "  \"settings\": \"${5:manifest/ui/settings.json}\",",
+      "  \"fragments\": [",
+      "    \"${6:manifest/options/main.json}\",",
+      "    \"${7:manifest/resources/main.json}\",",
+      "    \"${8:manifest/programs/main.json}\",",
+      "    \"${9:manifest/passes/main.json}\"",
+      "  ]",
+      "}"
+    ]
+  },
+  "Dawnlight single-file root": {
+    "scope": "json,jsonc",
+    "prefix": "dawnlight-root-single",
+    "description": "Create a small single-file Dawnlight Manifest v3.",
+    "body": [
+      "{",
+      "  \"manifestVersion\": 3,",
+      "  \"id\": \"${1:example:my_pack}\",",
+      "  \"name\": \"${2:My Shader Pack}\",",
+      "  \"version\": \"${3:0.1.0}\",",
+      "  \"shaderRoot\": \"${4:shaders}\",",
+      "  \"options\": [],",
+      "  \"resources\": [],",
+      "  \"programs\": [],",
+      "  \"passes\": []",
+      "}"
+    ]
+  },
+  "Dawnlight options fragment": {
+    "scope": "json,jsonc",
+    "prefix": "dawnlight-options-fragment",
+    "description": "Create an options fragment.",
+    "body": [
+      "{",
+      "  \"options\": [",
+      "    ${0}",
+      "  ]",
+      "}"
+    ]
+  },
+  "Dawnlight resources fragment": {
+    "scope": "json,jsonc",
+    "prefix": "dawnlight-resources-fragment",
+    "description": "Create a resources fragment.",
+    "body": [
+      "{",
+      "  \"resources\": [",
+      "    ${0}",
+      "  ]",
+      "}"
+    ]
+  },
+  "Dawnlight programs fragment": {
+    "scope": "json,jsonc",
+    "prefix": "dawnlight-programs-fragment",
+    "description": "Create a programs fragment.",
+    "body": [
+      "{",
+      "  \"programs\": [",
+      "    ${0}",
+      "  ]",
+      "}"
+    ]
+  },
+  "Dawnlight passes fragment": {
+    "scope": "json,jsonc",
+    "prefix": "dawnlight-passes-fragment",
+    "description": "Create a passes fragment.",
+    "body": [
+      "{",
+      "  \"passes\": [",
+      "    ${0}",
+      "  ]",
+      "}"
+    ]
+  },
+  "Dawnlight boolean option": {
+    "scope": "json,jsonc",
+    "prefix": "dawnlight-option-boolean",
+    "description": "Create a boolean shader option.",
+    "body": [
+      "{",
+      "  \"id\": \"${1:example:pack/option}\",",
+      "  \"type\": \"boolean\",",
+      "  \"default\": ${2:true},",
+      "  \"impact\": [\"${3:program}\"]",
+      "}"
+    ]
+  },
+  "Dawnlight number option": {
+    "scope": "json,jsonc",
+    "prefix": "dawnlight-option-number",
+    "description": "Create a numeric shader option.",
+    "body": [
+      "{",
+      "  \"id\": \"${1:example:pack/option}\",",
+      "  \"type\": \"number\",",
+      "  \"default\": ${2:1.0},",
+      "  \"min\": ${3:0.0},",
+      "  \"max\": ${4:2.0},",
+      "  \"step\": ${5:0.1},",
+      "  \"impact\": [\"${6:uniform}\"]",
+      "}"
+    ]
+  },
+  "Dawnlight choice option": {
+    "scope": "json,jsonc",
+    "prefix": "dawnlight-option-choice",
+    "description": "Create a string option with allowed values.",
+    "body": [
+      "{",
+      "  \"id\": \"${1:example:pack/option}\",",
+      "  \"type\": \"string\",",
+      "  \"default\": \"${2:default}\",",
+      "  \"allowed\": [\"${3:default}\", \"${4:alternate}\"],",
+      "  \"impact\": [\"${5:program}\"]",
+      "}"
+    ]
+  },
+  "Dawnlight texture2D resource": {
+    "scope": "json,jsonc",
+    "prefix": "dawnlight-texture2d",
+    "description": "Create a persistent viewport texture2D resource.",
+    "body": [
+      "{",
+      "  \"id\": \"${1:example:pack/texture}\",",
+      "  \"kind\": \"texture2D\",",
+      "  \"lifetime\": \"persistent\",",
+      "  \"size\": {\"mode\": \"${2:viewport}\"},",
+      "  \"format\": \"${3:rgba8}\"",
+      "}"
+    ]
+  },
+  "Dawnlight graphics program": {
+    "scope": "json,jsonc",
+    "prefix": "dawnlight-graphics-program",
+    "description": "Create a graphics Program declaration.",
+    "body": [
+      "{",
+      "  \"id\": \"${1:example:pack/program}\",",
+      "  \"kind\": \"graphics\",",
+      "  \"vertex\": \"${2:Main.vsh}\",",
+      "  \"fragment\": \"${3:Main.psh}\"",
+      "}"
+    ]
+  },
+  "Dawnlight compute program": {
+    "scope": "json,jsonc",
+    "prefix": "dawnlight-compute-program",
+    "description": "Create a compute Program declaration.",
+    "body": [
+      "{",
+      "  \"id\": \"${1:example:pack/program}\",",
+      "  \"kind\": \"compute\",",
+      "  \"compute\": \"${2:Main.comp}\"",
+      "}"
+    ]
+  },
+  "Dawnlight fullscreen command": {
+    "scope": "json,jsonc",
+    "prefix": "dawnlight-fullscreen-command",
+    "description": "Create a fullscreen command.",
+    "body": [
+      "{",
+      "  \"type\": \"fullscreen\",",
+      "  \"program\": \"${1:example:pack/program}\",",
+      "  \"targets\": {",
+      "    \"colors\": [",
+      "      {",
+      "        \"location\": 0,",
+      "        \"resource\": \"${2:example:pack/texture}\",",
+      "        \"loadOp\": \"dontCare\",",
+      "        \"storeOp\": \"store\"",
+      "      }",
+      "    ]",
+      "  }",
+      "}"
+    ]
+  },
+  "Dawnlight compute command": {
+    "scope": "json,jsonc",
+    "prefix": "dawnlight-compute-command",
+    "description": "Create a compute dispatch command.",
+    "body": [
+      "{",
+      "  \"type\": \"compute\",",
+      "  \"program\": \"${1:example:pack/program}\",",
+      "  \"groupsX\": ${2:1},",
+      "  \"groupsY\": ${3:1},",
+      "  \"groupsZ\": ${4:1}",
+      "}"
+    ]
+  },
+  "Dawnlight history commit command": {
+    "scope": "json,jsonc",
+    "prefix": "dawnlight-history-commit-command",
+    "description": "Create a history commit command.",
+    "body": [
+      "{",
+      "  \"type\": \"historyCommit\",",
+      "  \"resource\": \"${1:example:pack/history}\"",
+      "}"
+    ]
+  },
+  "Dawnlight settings page": {
+    "scope": "json,jsonc",
+    "prefix": "dawnlight-settings-page",
+    "description": "Create a Settings UI page.",
+    "body": [
+      "{",
+      "  \"id\": \"${1:basic}\",",
+      "  \"title\": \"${2:page.basic}\",",
+      "  \"groups\": [",
+      "    ${0}",
+      "  ]",
+      "}"
+    ]
+  },
+  "Dawnlight settings toggle": {
+    "scope": "json,jsonc",
+    "prefix": "dawnlight-toggle-control",
+    "description": "Create a toggle Settings UI control.",
+    "body": [
+      "{",
+      "  \"id\": \"${1:toggle}\",",
+      "  \"option\": \"${2:example:pack/option}\",",
+      "  \"widget\": \"toggle\",",
+      "  \"label\": \"${3:option.label}\"",
+      "}"
+    ]
+  },
+  "Dawnlight settings choice": {
+    "scope": "json,jsonc",
+    "prefix": "dawnlight-choice-control",
+    "description": "Create a choice Settings UI control.",
+    "body": [
+      "{",
+      "  \"id\": \"${1:choice}\",",
+      "  \"option\": \"${2:example:pack/option}\",",
+      "  \"widget\": \"choice\",",
+      "  \"label\": \"${3:option.label}\",",
+      "  \"values\": [",
+      "    {\"value\": \"${4:default}\", \"label\": \"${5:value.default}\"}\n",
+      "  ]",
+      "}"
+    ]
+  },
+  "Dawnlight settings slider": {
+    "scope": "json,jsonc",
+    "prefix": "dawnlight-slider-control",
+    "description": "Create a slider Settings UI control.",
+    "body": [
+      "{",
+      "  \"id\": \"${1:slider}\",",
+      "  \"option\": \"${2:example:pack/option}\",",
+      "  \"widget\": \"slider\",",
+      "  \"label\": \"${3:option.label}\",",
+      "  \"min\": ${4:0},",
+      "  \"max\": ${5:1},",
+      "  \"step\": ${6:0.1}",
+      "}"
+    ]
+  }
+}

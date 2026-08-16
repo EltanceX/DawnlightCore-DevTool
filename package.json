@@ -27,12 +27,15 @@
     "package": "vsce package --no-dependencies"
   },
   "devDependencies": {
-    "@vscode/vsce": "^3.2.2"
+    "@vscode/vsce": "^3.2.2",
+    "ajv": "^8.17.1"
   },
   "contributes": {
     "jsonValidation": [
       {
-        "fileMatch": ["**/shaderpack.json"],
+        "fileMatch": [
+          "**/shaderpack.json"
+        ],
         "url": "./schemas/shaderpack-manifest-v3-root.schema.json"
       },
       {
@@ -45,7 +48,9 @@
         "url": "./schemas/shaderpack-manifest-v3-fragment.schema.json"
       },
       {
-        "fileMatch": ["**/manifest/ui/settings.json"],
+        "fileMatch": [
+          "**/manifest/ui/settings.json"
+        ],
         "url": "./schemas/shaderpack-settings-ui-v1.schema.json"
       }
     ],

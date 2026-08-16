@@ -1,0 +1,108 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "shaderpack-settings-ui-v1.schema.json",
+  "title": "Dawnlight Shader Pack Settings UI v1",
+  "type": "object",
+  "required": ["schemaVersion", "pages"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "defaultLocale": {"$ref": "shaderpack-common.schema.json#/definitions/locale"},
+    "translations": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {"$ref": "shaderpack-common.schema.json#/definitions/translationMap"}
+    },
+    "pages": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/definitions/page"}
+    },
+    "hiddenOptions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"$ref": "shaderpack-common.schema.json#/definitions/identifier"}
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "condition": {"$ref": "shaderpack-common.schema.json#/definitions/condition"},
+    "page": {
+      "type": "object",
+      "required": ["id", "title", "groups"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "title": {"type": "string", "minLength": 1},
+        "order": {"type": "integer"},
+        "groups": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/definitions/group"}
+        },
+        "visibleWhen": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/condition"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "group": {
+      "type": "object",
+      "required": ["id", "title", "controls"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "title": {"type": "string", "minLength": 1},
+        "order": {"type": "integer"},
+        "controls": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/definitions/control"}
+        },
+        "visibleWhen": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/condition"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "choiceValue": {
+      "type": "object",
+      "required": ["value", "label"],
+      "properties": {
+        "value": {},
+        "label": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "control": {
+      "type": "object",
+      "required": ["id", "option", "widget", "label"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "option": {"$ref": "shaderpack-common.schema.json#/definitions/identifier"},
+        "widget": {"type": "string", "enum": ["toggle", "choice", "slider", "number", "text"]},
+        "label": {"type": "string", "minLength": 1},
+        "description": {"type": "string"},
+        "unit": {"type": "string"},
+        "min": {"type": "number"},
+        "max": {"type": "number"},
+        "step": {"type": "number", "exclusiveMinimum": 0},
+        "values": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/definitions/choiceValue"}
+        },
+        "advanced": {"type": "boolean"},
+        "developerOnly": {"type": "boolean"},
+        "visibleWhen": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/condition"}
+        },
+        "enabledWhen": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/condition"}
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

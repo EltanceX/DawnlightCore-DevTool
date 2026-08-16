@@ -1,0 +1,225 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "shaderpack-common.schema.json",
+  "title": "Dawnlight Shader Pack Common Definitions",
+  "definitions": {
+    "identifier": {
+      "type": "string",
+      "minLength": 3,
+      "pattern": "^[a-z0-9][a-z0-9_-]*:[^\\s]+$",
+      "description": "A namespaced Dawnlight identifier. Pack-local and Catalog IDs are intentionally not enumerated here."
+    },
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!\\\\)(?![A-Za-z]:)(?!.*(?:^|/)(?:\\.|\\.\\.)/)(?!.*\\\\)",
+      "description": "A pack-relative path using forward slashes. Rooted paths and parent-directory traversal are not valid."
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "An exact version of a versioned Dawnlight contract."
+    },
+    "locale": {
+      "type": "string",
+      "minLength": 2,
+      "pattern": "^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$"
+    },
+    "number": {
+      "type": "number"
+    },
+    "vec2": {
+      "type": "array",
+      "items": [
+        {"type": "number"},
+        {"type": "number"}
+      ],
+      "minItems": 2,
+      "maxItems": 2,
+      "additionalItems": false
+    },
+    "vec3": {
+      "type": "array",
+      "items": [
+        {"type": "number"},
+        {"type": "number"},
+        {"type": "number"}
+      ],
+      "minItems": 3,
+      "maxItems": 3,
+      "additionalItems": false
+    },
+    "vec4": {
+      "type": "array",
+      "items": [
+        {"type": "number"},
+        {"type": "number"},
+        {"type": "number"},
+        {"type": "number"}
+      ],
+      "minItems": 4,
+      "maxItems": 4,
+      "additionalItems": false
+    },
+    "impact": {
+      "type": "string",
+      "enum": ["uniform", "program", "pipeline", "resources"],
+      "description": "The runtime area invalidated when an option changes."
+    },
+    "optionReference": {
+      "type": "object",
+      "required": ["option"],
+      "properties": {
+        "option": {"$ref": "#/definitions/identifier"},
+        "map": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": ["string", "null"]
+          },
+          "description": "Maps an option value to a literal preprocessor define value. Null disables the define."
+        }
+      },
+      "additionalProperties": false
+    },
+    "condition": {
+      "type": "object",
+      "required": ["option"],
+      "properties": {
+        "option": {"$ref": "#/definitions/identifier"},
+        "equals": {},
+        "notEquals": {},
+        "in": {
+          "type": "array",
+          "minItems": 1,
+          "items": {}
+        },
+        "oneOf": {
+          "type": "array",
+          "minItems": 1,
+          "items": {}
+        }
+      },
+      "additionalProperties": true,
+      "minProperties": 2,
+      "description": "A local option condition. Cross-file option existence is checked by a later semantic analyzer."
+    },
+    "semanticBinding": {
+      "type": "object",
+      "required": ["symbol", "semantic", "version"],
+      "properties": {
+        "symbol": {"type": "string", "minLength": 1},
+        "semantic": {"$ref": "#/definitions/identifier"},
+        "version": {"$ref": "#/definitions/version"},
+        "enabledWhen": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/condition"}
+        }
+      },
+      "additionalProperties": true
+    },
+    "resourceBinding": {
+      "type": "object",
+      "required": ["kind", "symbol", "binding", "resource"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["sampler2D", "samplerCube", "image2D", "imageCube", "uniformBuffer", "storageBuffer"]
+        },
+        "symbol": {"type": "string", "minLength": 1},
+        "binding": {"type": "integer", "minimum": 0},
+        "resource": {"$ref": "#/definitions/identifier"},
+        "access": {"type": "string", "enum": ["read", "write", "readWrite", "readOnly", "writeOnly"]},
+        "view": {"$ref": "#/definitions/identifier"},
+        "framesAgo": {"type": "integer", "minimum": 0},
+        "fallback": {},
+        "enabledWhen": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/condition"}
+        }
+      },
+      "additionalProperties": true
+    },
+    "clear": {
+      "type": "object",
+      "properties": {
+        "color": {"$ref": "#/definitions/vec4"},
+        "depth": {"type": "number", "minimum": 0, "maximum": 1},
+        "stencil": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false,
+      "minProperties": 1
+    },
+    "targetColor": {
+      "type": "object",
+      "required": ["location", "resource", "loadOp", "storeOp"],
+      "properties": {
+        "location": {"type": "integer", "minimum": 0},
+        "resource": {"$ref": "#/definitions/identifier"},
+        "view": {"$ref": "#/definitions/identifier"},
+        "loadOp": {"type": "string", "enum": ["load", "clear", "dontCare"]},
+        "storeOp": {"type": "string", "enum": ["store", "dontCare"]},
+        "clear": {"$ref": "#/definitions/clear"}
+      },
+      "additionalProperties": true
+    },
+    "targetDepth": {
+      "type": "object",
+      "required": ["resource", "loadOp", "storeOp"],
+      "properties": {
+        "resource": {"$ref": "#/definitions/identifier"},
+        "view": {"$ref": "#/definitions/identifier"},
+        "loadOp": {"type": "string", "enum": ["load", "clear", "dontCare"]},
+        "storeOp": {"type": "string", "enum": ["store", "dontCare"]},
+        "clear": {"$ref": "#/definitions/clear"}
+      },
+      "additionalProperties": true
+    },
+    "targets": {
+      "type": "object",
+      "properties": {
+        "colors": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/targetColor"}
+        },
+        "depth": {"$ref": "#/definitions/targetDepth"}
+      },
+      "additionalProperties": true,
+      "minProperties": 1
+    },
+    "viewport": {
+      "type": "object",
+      "properties": {
+        "source": {"type": "string", "enum": ["frame", "target", "resource"]},
+        "restore": {"type": "string", "enum": ["frame", "target", "none"]},
+        "synchronizeScissor": {"type": "boolean"}
+      },
+      "additionalProperties": true
+    },
+    "stage": {
+      "type": "object",
+      "required": ["template", "version", "target", "phase"],
+      "properties": {
+        "template": {"$ref": "#/definitions/identifier"},
+        "version": {"$ref": "#/definitions/version"},
+        "target": {"type": "string", "enum": ["world", "afterDraw"]},
+        "phase": {"type": "string", "minLength": 1},
+        "ordering": {
+          "type": "object",
+          "properties": {
+            "before": {"type": "array", "items": {"$ref": "#/definitions/identifier"}},
+            "after": {"type": "array", "items": {"$ref": "#/definitions/identifier"}},
+            "requires": {"type": "array", "items": {"$ref": "#/definitions/identifier"}}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": true
+    },
+    "translationMap": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {"type": "string"}
+    }
+  }
+}
