@@ -2,7 +2,7 @@
 
 Declarative VS Code authoring support for Dawnlight shader-pack JSON and JSONC files.
 
-## MVP scope
+## Current scope
 
 Version `0.1.0` provides local JSON Schema validation, field/value completion, hover descriptions and authoring snippets for:
 
@@ -15,7 +15,9 @@ Version `0.1.0` provides local JSON Schema validation, field/value completion, h
 
 The packaged extension requires VS Code `1.90` or newer.
 
-The MVP does not resolve pack-local IDs, Catalog IDs, cross-file references, shader code or production runtime diagnostics. Those capabilities are planned for a later language-server version.
+The V2-0 development milestone also adds the TypeScript workspace, versioned contracts, a bundled minimal Language Server and its VS Code Language Client. The server currently provides lifecycle and protocol foundations only; it does not yet change the first-version authoring results.
+
+Pack-local IDs, workspace discovery, Catalog IDs, cross-file references, shader code and production runtime diagnostics remain planned work beginning with V2-1.
 
 ## Local development
 
@@ -34,8 +36,10 @@ code --user-data-dir .vscode-acceptance-user `
   --install-extension .\dawnlight-shader-pack-tools-0.1.0.vsix --force
 ```
 
-The extension is an offline declarative package: the VSIX contains the schemas
-and snippets and does not fetch runtime resources or start a background server.
+The extension remains offline: the VSIX contains schemas, snippets and bundled
+client/server JavaScript and does not fetch runtime resources. In a workspace
+containing `shaderpack.json`, it starts the bundled Language Server process and
+stops it when the extension deactivates.
 
 Run the local checks with:
 
@@ -43,6 +47,10 @@ Run the local checks with:
 npm test
 npm run test:vscode
 ```
+
+`npm test` builds the TypeScript projects and bundles, runs the original Schema
+regression suite, and exercises the Language Server as an independent stdio
+process. `npm run typecheck` performs a strict TypeScript project build.
 
 `test:vscode` is skipped by default. To run the real VS Code smoke test, set
 `DAWNLIGHT_RUN_VSCODE_TEST=1` and optionally `DAWNLIGHT_VSCODE_PATH` to the

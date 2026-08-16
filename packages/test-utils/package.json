@@ -1,0 +1,11 @@
+{
+  "name": "@dawnlight/test-utils",
+  "version": "0.2.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "dependencies": {
+    "@dawnlight/contracts": "0.2.0",
+    "vscode-jsonrpc": "^8.2.1"
+  }
+}

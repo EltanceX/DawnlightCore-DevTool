@@ -19,6 +19,19 @@ function errorsFor(uri) {
 }
 
 suite('Dawnlight declarative schema smoke test', () => {
+  test('extension activates its language client and exposes contract versions', async () => {
+    const extension = vscode.extensions.getExtension(
+      'dawnlight-dev.dawnlight-shader-pack-tools'
+    );
+    assert.ok(extension, 'Dawnlight extension is not installed.');
+    const api = await extension.activate();
+    assert.deepEqual(api.getServerStatus(), {
+      running: true,
+      languageServerProtocolVersion: 1,
+      schemaContractVersion: 1
+    });
+  });
+
   test('valid root fixture has no schema errors', async () => {
     const document = await openFixture('fixtures/valid/minimal/shaderpack.json');
     assert.equal(errorsFor(document.uri).length, 0,

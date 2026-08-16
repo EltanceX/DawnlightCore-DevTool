@@ -49,6 +49,23 @@ function findInstalledExtension(extensionsDir) {
   return extensionDir;
 }
 
+async function removeTemporaryProfile(tempRoot) {
+  const retryableCodes = new Set(['EPERM', 'EBUSY', 'ENOTEMPTY']);
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    try {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+      return;
+    } catch (error) {
+      if (!retryableCodes.has(error.code)) {
+        console.warn(`Could not remove temporary profile ${tempRoot}: ${error.message}`);
+        return;
+      }
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  }
+  console.warn(`VS Code left a locked temporary profile; remove it later: ${tempRoot}`);
+}
+
 async function main() {
   if (!fs.existsSync(vsixPath)) {
     throw new Error(`Missing ${path.basename(vsixPath)}. Run npm run package first.`);
@@ -77,16 +94,7 @@ async function main() {
       reuseMachineInstall: true
     });
   } finally {
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-      try {
-        fs.rmSync(tempRoot, { recursive: true, force: true });
-        return;
-      } catch (error) {
-        if (error.code !== 'EPERM' && error.code !== 'EBUSY') throw error;
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-    }
-    console.warn(`VS Code left a locked temporary profile; remove it later: ${tempRoot}`);
+    await removeTemporaryProfile(tempRoot);
   }
 }
 

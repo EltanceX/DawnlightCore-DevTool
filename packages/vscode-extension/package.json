@@ -1,0 +1,11 @@
+{
+  "name": "@dawnlight/vscode-extension",
+  "version": "0.2.0",
+  "private": true,
+  "main": "dist/extension.js",
+  "types": "dist/extension.d.ts",
+  "dependencies": {
+    "@dawnlight/contracts": "0.2.0",
+    "vscode-languageclient": "^9.0.1"
+  }
+}

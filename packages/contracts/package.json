@@ -1,0 +1,7 @@
+{
+  "name": "@dawnlight/contracts",
+  "version": "0.2.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts"
+}

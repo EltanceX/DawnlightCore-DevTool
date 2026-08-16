@@ -3,13 +3,20 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const root = path.resolve(__dirname, '..');
+const ignoredDirectories = new Set([
+  '.git',
+  '.vscode-test',
+  'dist',
+  'node_modules',
+  'out'
+]);
 
 function walk(directory) {
   const entries = fs.readdirSync(directory, { withFileTypes: true });
   return entries.flatMap(entry => {
     const fullPath = path.join(directory, entry.name);
     if (entry.isDirectory()) {
-      return ['node_modules', '.git'].includes(entry.name) ? [] : walk(fullPath);
+      return ignoredDirectories.has(entry.name) ? [] : walk(fullPath);
     }
     return [fullPath];
   });

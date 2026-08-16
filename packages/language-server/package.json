@@ -1,0 +1,12 @@
+{
+  "name": "@dawnlight/language-server",
+  "version": "0.2.0",
+  "private": true,
+  "main": "dist/server.js",
+  "types": "dist/server.d.ts",
+  "dependencies": {
+    "@dawnlight/contracts": "0.2.0",
+    "vscode-languageserver": "^9.0.1",
+    "vscode-languageserver-textdocument": "^1.0.12"
+  }
+}
