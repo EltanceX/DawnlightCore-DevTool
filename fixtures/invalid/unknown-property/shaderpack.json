@@ -1,0 +1,7 @@
+{
+  "manifestVersion": 3,
+  "id": "example:unknown_property",
+  "name": "Unknown Property",
+  "version": "0.1.0",
+  "notPartOfTheManifest": true
+}

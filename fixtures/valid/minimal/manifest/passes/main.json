@@ -1,0 +1,31 @@
+{
+  "passes": [
+    {
+      "id": "example:minimal/output",
+      "enabled": true,
+      "stage": {
+        "template": "dawnlight:fullscreen",
+        "version": 1,
+        "target": "afterDraw",
+        "phase": "afterDraw"
+      },
+      "programs": ["example:minimal/fullscreen"],
+      "commands": [
+        {
+          "type": "fullscreen",
+          "program": "example:minimal/fullscreen",
+          "targets": {
+            "colors": [
+              {
+                "location": 0,
+                "resource": "example:minimal/color",
+                "loadOp": "dontCare",
+                "storeOp": "store"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

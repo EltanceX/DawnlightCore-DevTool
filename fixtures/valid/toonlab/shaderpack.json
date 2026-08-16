@@ -1,0 +1,25 @@
+{
+  "manifestVersion": 3,
+  "id": "example:toonlab",
+  "name": "ToonLab Example",
+  "version": "0.1.0",
+  "shaderRoot": "shaders",
+  "options": [
+    {
+      "id": "example:toonlab/outline",
+      "type": "boolean",
+      "default": false,
+      "impact": ["program"]
+    }
+  ],
+  "resources": [],
+  "programs": [
+    {
+      "id": "example:toonlab/main",
+      "kind": "graphics",
+      "vertex": "Main.vsh",
+      "fragment": "Main.psh"
+    }
+  ],
+  "passes": []
+}

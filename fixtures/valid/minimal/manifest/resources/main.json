@@ -1,0 +1,11 @@
+{
+  "resources": [
+    {
+      "id": "example:minimal/color",
+      "kind": "texture2D",
+      "lifetime": "persistent",
+      "size": {"mode": "viewport"},
+      "format": "rgba8"
+    }
+  ]
+}

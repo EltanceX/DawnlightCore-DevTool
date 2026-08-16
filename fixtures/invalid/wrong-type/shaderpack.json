@@ -1,0 +1,6 @@
+{
+  "manifestVersion": "3",
+  "id": "example:wrong_type",
+  "name": "Wrong Type",
+  "version": "0.1.0"
+}

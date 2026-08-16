@@ -1,0 +1,17 @@
+{
+  "options": [
+    {
+      "id": "example:minimal/enabled",
+      "type": "boolean",
+      "default": true,
+      "impact": ["program"]
+    },
+    {
+      "id": "example:minimal/quality",
+      "type": "string",
+      "default": "medium",
+      "allowed": ["low", "medium", "high"],
+      "impact": ["program"]
+    }
+  ]
+}

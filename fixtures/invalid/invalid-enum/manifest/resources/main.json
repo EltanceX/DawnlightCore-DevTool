@@ -1,0 +1,11 @@
+{
+  "resources": [
+    {
+      "id": "example:invalid/resource",
+      "kind": "texture9D",
+      "lifetime": "persistent",
+      "size": {"mode": "viewport"},
+      "format": "rgba8"
+    }
+  ]
+}

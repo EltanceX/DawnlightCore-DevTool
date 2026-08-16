@@ -1,0 +1,14 @@
+{
+  "programs": [
+    {
+      "id": "example:minimal/fullscreen",
+      "kind": "graphics",
+      "vertex": "Fullscreen.vsh",
+      "fragment": "Fullscreen.psh",
+      "compileMode": "legacyCustom",
+      "defines": {
+        "Enabled": {"option": "example:minimal/enabled"}
+      }
+    }
+  ]
+}

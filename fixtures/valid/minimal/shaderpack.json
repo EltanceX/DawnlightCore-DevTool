@@ -1,0 +1,15 @@
+{
+  "sourceFormatVersion": 1,
+  "manifestVersion": 3,
+  "id": "example:minimal",
+  "name": "Minimal Example",
+  "version": "0.1.0",
+  "shaderRoot": "shaders",
+  "settings": "manifest/ui/settings.json",
+  "fragments": [
+    "manifest/options/basic.json",
+    "manifest/resources/main.json",
+    "manifest/programs/main.json",
+    "manifest/passes/main.json"
+  ]
+}

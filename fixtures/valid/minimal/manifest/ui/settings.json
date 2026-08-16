@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "defaultLocale": "en-US",
+  "translations": {
+    "en-US": {
+      "page.basic": "Basic",
+      "group.basic.visual": "Visual",
+      "option.enabled": "Enabled"
+    }
+  },
+  "pages": [
+    {
+      "id": "basic",
+      "title": "page.basic",
+      "groups": [
+        {
+          "id": "visual",
+          "title": "group.basic.visual",
+          "controls": [
+            {
+              "id": "enabled",
+              "option": "example:minimal/enabled",
+              "widget": "toggle",
+              "label": "option.enabled"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "hiddenOptions": []
+}
