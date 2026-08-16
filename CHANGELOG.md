@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased - V2-3
+
+- Added pack-local Symbol/Reference Index snapshots for options, resources, programs, passes, Settings UI, shader paths, and asset paths.
+- Added duplicate canonical ID detection with precise definition ranges and `DLSYMBOL0001` diagnostics.
+- Added strict multi-pack isolation and incremental affected-project rebuilds with immutable atomic snapshots.
+- Added `dawnlight/symbolSnapshot` and tests for resolved references, file symbols, duplicates, overlays, and incremental reuse.
+
 ## Unreleased - V2-2
 
 - Added JSONC document snapshots with comments, trailing commas, syntax errors, precise AST ranges, source kind, and LSP document versions.

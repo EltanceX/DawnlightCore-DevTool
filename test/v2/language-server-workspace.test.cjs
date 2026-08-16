@@ -29,6 +29,15 @@ async function waitForComposition(harness, predicate) {
   return harness.sendRequest(LSP_METHODS.compositionSnapshot);
 }
 
+async function waitForSymbols(harness, predicate) {
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    const snapshot = await harness.sendRequest(LSP_METHODS.symbolSnapshot);
+    if (predicate(snapshot)) return snapshot;
+    await new Promise(resolve => setTimeout(resolve, 20));
+  }
+  return harness.sendRequest(LSP_METHODS.symbolSnapshot);
+}
+
 test('language server discovers a workspace and associates arbitrary schema paths', async t => {
   const { harness } = await LspTestHarness.start(serverPath, {
     clientProtocolVersion: CONTRACT_VERSIONS.languageServerProtocol
@@ -46,6 +55,9 @@ test('language server discovers a workspace and associates arbitrary schema path
   const initialComposition = await waitForComposition(harness, value =>
     value.generation > 0 && value.projects.length === 1);
   assert.equal(initialComposition.projects[0].documents.length, 3);
+  const initialSymbols = await waitForSymbols(harness, value =>
+    value.generation > 0 && value.projects[0]?.symbols.some(symbol => symbol.kind === 'settingsPage'));
+  assert.equal(initialSymbols.projects[0].symbols.filter(symbol => symbol.kind === 'settingsPage').length, 1);
 
   const fragmentPath = path.join(fixtureRoot, 'config', 'pipeline.json');
   const fragmentUri = pathToFileURL(fragmentPath).toString();
@@ -75,6 +87,9 @@ test('language server discovers a workspace and associates arbitrary schema path
     value.projects[0]?.definitions.options.some(item => item.id === 'example:unsaved'));
   assert.equal(overlayComposition.projects[0].documents.find(document =>
     document.uri === fragmentUri).version, 2);
+  const overlaySymbols = await waitForSymbols(harness, value =>
+    value.projects[0]?.symbols.some(symbol => symbol.id === 'example:unsaved'));
+  assert.ok(overlaySymbols.projects[0].symbols.some(symbol => symbol.id === 'example:unsaved'));
 
   const settingsPath = path.join(fixtureRoot, 'authoring', 'settings-ui.json');
   const settingsUri = pathToFileURL(settingsPath).toString();

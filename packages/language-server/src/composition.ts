@@ -12,7 +12,8 @@ import { getNodeValue } from 'jsonc-parser';
 import { ShaderPackProject, WorkspaceDiscoverySnapshot } from './workspaceDiscovery';
 
 type DefinitionKind = 'option' | 'resource' | 'program' | 'pass';
-type DefinitionRecord = DawnlightCompositionDefinitionSnapshot & { value: Record<string, unknown> };
+export type CompositionDefinitionKind = DefinitionKind;
+export type DefinitionRecord = DawnlightCompositionDefinitionSnapshot & { value: Record<string, unknown> };
 
 export interface CompositionDiagnostic {
   code: string;

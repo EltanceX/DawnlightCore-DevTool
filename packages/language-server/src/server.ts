@@ -21,6 +21,7 @@ import {
 import { DawnlightSchemaService, DynamicSchemaRole } from './schemaService';
 import { JsoncDocumentStore } from './jsoncDocuments';
 import { WorkspaceCompositionManager } from './composition';
+import { WorkspaceSymbolIndexManager } from './symbols';
 import {
   PackPathReference,
   ShaderPackProject,
@@ -33,6 +34,7 @@ const discovery = new WorkspacePackDiscovery([]);
 const schemaService = new DawnlightSchemaService(path.resolve(__dirname, '..', 'schemas'));
 const documentStore = new JsoncDocumentStore();
 const composition = new WorkspaceCompositionManager(documentStore);
+const symbolIndex = new WorkspaceSymbolIndexManager();
 let initializedWorkspaceFolders: string[] = [];
 
 function uriToPath(uri: string): string | undefined {
@@ -87,8 +89,15 @@ function compositionSnapshot(): DawnlightWorkspaceCompositionSnapshot {
   };
 }
 
-function rebuildComposition(): void {
-  void composition.rebuild(discovery.snapshot).catch(error => {
+function symbolSnapshot() {
+  return symbolIndex.snapshot;
+}
+
+function rebuildComposition(changedPaths: readonly string[] = []): void {
+  void composition.rebuild(discovery.snapshot).then(result => {
+    if (result.applied) return symbolIndex.rebuild(result.snapshot, discovery.snapshot, changedPaths);
+    return undefined;
+  }).catch(error => {
     connection.console.error(`Could not compose Dawnlight workspace: ${(error as Error).message}`);
   });
 }
@@ -150,7 +159,7 @@ function refreshWorkspace(changedPaths: readonly string[] = []): void {
     : discovery.refresh();
   if (snapshot === previous) return;
   notifyWorkspaceChanged(snapshot);
-  rebuildComposition();
+  rebuildComposition(changedPaths);
 }
 
 connection.onInitialize(params => {
@@ -235,6 +244,7 @@ connection.onDidChangeWatchedFiles((params: DidChangeWatchedFilesParams) => {
 
 connection.onRequest(LSP_METHODS.workspaceSnapshot, () => workspaceSnapshot());
 connection.onRequest(LSP_METHODS.compositionSnapshot, () => compositionSnapshot());
+connection.onRequest(LSP_METHODS.symbolSnapshot, () => symbolSnapshot());
 
 connection.onCompletion(params => {
   const document = documents.get(params.textDocument.uri);
@@ -255,7 +265,7 @@ documents.onDidOpen(event => {
     const next = discovery.setDocumentOverlay(documentPath, event.document.getText());
     if (next !== previous) notifyWorkspaceChanged(next);
   }
-  rebuildComposition();
+  rebuildComposition(documentPath ? [documentPath] : []);
   void validateDocument(event.document);
 });
 
@@ -267,7 +277,7 @@ documents.onDidChangeContent(event => {
     const next = discovery.setDocumentOverlay(documentPath, event.document.getText());
     if (next !== previous) notifyWorkspaceChanged(next);
   }
-  rebuildComposition();
+  rebuildComposition(documentPath ? [documentPath] : []);
   void validateDocument(event.document);
 });
 
@@ -279,7 +289,7 @@ documents.onDidClose(event => {
     const next = discovery.clearDocumentOverlay(documentPath);
     if (next !== previous) notifyWorkspaceChanged(next);
   }
-  rebuildComposition();
+  rebuildComposition(documentPath ? [documentPath] : []);
   schemaService.setRole(event.document, undefined);
   connection.sendDiagnostics({ uri: event.document.uri, diagnostics: [] });
 });

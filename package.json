@@ -38,7 +38,7 @@
     "lint": "node test/quality-check.cjs",
     "typecheck": "tsc -b --pretty false",
     "test": "npm run test:unit",
-    "test:unit": "npm run build && node --test test/schema.test.cjs test/completion.test.cjs test/file-match.test.cjs test/snippet.test.cjs test/v2/contracts.test.cjs test/v2/language-server.test.cjs test/v2/workspace-discovery.test.cjs test/v2/language-server-workspace.test.cjs test/v2/composition.test.cjs",
+    "test:unit": "npm run build && node --test test/schema.test.cjs test/completion.test.cjs test/file-match.test.cjs test/snippet.test.cjs test/v2/contracts.test.cjs test/v2/language-server.test.cjs test/v2/workspace-discovery.test.cjs test/v2/language-server-workspace.test.cjs test/v2/composition.test.cjs test/v2/symbol-index.test.cjs",
     "test:vscode": "npm run build && node test/run-vscode.cjs",
     "test:vsix": "node test/run-vsix-acceptance.cjs",
     "test:all": "npm run test:unit && npm run test:vscode && npm run test:vsix"

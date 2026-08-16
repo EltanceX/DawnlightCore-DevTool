@@ -1,6 +1,7 @@
 export const LSP_METHODS = Object.freeze({
   workspaceSnapshot: 'dawnlight/workspaceSnapshot',
-  compositionSnapshot: 'dawnlight/compositionSnapshot'
+  compositionSnapshot: 'dawnlight/compositionSnapshot',
+  symbolSnapshot: 'dawnlight/symbolSnapshot'
 } as const);
 
 export type DawnlightPackDocumentRole = 'fragment' | 'settings' | 'shaderRoot';
@@ -87,4 +88,74 @@ export interface DawnlightPackCompositionSnapshot {
 export interface DawnlightWorkspaceCompositionSnapshot {
   generation: number;
   projects: readonly DawnlightPackCompositionSnapshot[];
+}
+
+export type DawnlightSymbolKind =
+  | 'option'
+  | 'resource'
+  | 'program'
+  | 'pass'
+  | 'settingsPage'
+  | 'settingsGroup'
+  | 'settingsControl'
+  | 'file';
+
+export type DawnlightReferenceKind =
+  | 'option'
+  | 'resource'
+  | 'program'
+  | 'path'
+  | 'shader'
+  | 'asset';
+
+export type DawnlightJsonPathSegment = string | number;
+
+export interface DawnlightSymbolSnapshot {
+  id: string;
+  canonicalId: string;
+  kind: DawnlightSymbolKind;
+  uri: string;
+  path: readonly DawnlightJsonPathSegment[];
+  range: DawnlightRange;
+  selectionRange: DawnlightRange;
+}
+
+export interface DawnlightReferenceSnapshot {
+  kind: DawnlightReferenceKind;
+  targetId?: string;
+  targetKind?: DawnlightSymbolKind;
+  targetPath?: string;
+  targetUri?: string;
+  uri: string;
+  path: readonly DawnlightJsonPathSegment[];
+  range: DawnlightRange;
+  resolved: boolean;
+  ambiguous: boolean;
+}
+
+export interface DawnlightSymbolDiagnosticSnapshot {
+  code: string;
+  message: string;
+  uri: string;
+  range?: DawnlightRange;
+}
+
+export interface DawnlightDuplicateSymbolSnapshot {
+  canonicalId: string;
+  definitions: readonly DawnlightSymbolSnapshot[];
+}
+
+export interface DawnlightPackSymbolIndexSnapshot {
+  rootUri: string;
+  compositionGeneration: number;
+  documents: readonly DawnlightCompositionDocumentSnapshot[];
+  symbols: readonly DawnlightSymbolSnapshot[];
+  references: readonly DawnlightReferenceSnapshot[];
+  duplicates: readonly DawnlightDuplicateSymbolSnapshot[];
+  diagnostics: readonly DawnlightSymbolDiagnosticSnapshot[];
+}
+
+export interface DawnlightWorkspaceSymbolIndexSnapshot {
+  generation: number;
+  projects: readonly DawnlightPackSymbolIndexSnapshot[];
 }
