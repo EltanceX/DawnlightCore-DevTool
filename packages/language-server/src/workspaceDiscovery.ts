@@ -155,16 +155,24 @@ function findManifestFiles(workspaceRoot: string, excluded: ReadonlySet<string>)
   return manifests;
 }
 
-function readRootManifest(manifestPath: string, diagnostics: WorkspaceDiagnostic[]): Record<string, unknown> | undefined {
+function readRootManifest(
+  manifestPath: string,
+  diagnostics: WorkspaceDiagnostic[],
+  overlayText?: string
+): Record<string, unknown> | undefined {
   let source: string;
-  try {
-    source = fs.readFileSync(manifestPath, 'utf8');
-  } catch (error) {
-    diagnostics.push({
-      code: createDiagnosticCode('json', 1),
-      message: `Could not read shaderpack.json: ${(error as Error).message}`
-    });
-    return undefined;
+  if (overlayText !== undefined) {
+    source = overlayText;
+  } else {
+    try {
+      source = fs.readFileSync(manifestPath, 'utf8');
+    } catch (error) {
+      diagnostics.push({
+        code: createDiagnosticCode('json', 1),
+        message: `Could not read shaderpack.json: ${(error as Error).message}`
+      });
+      return undefined;
+    }
   }
 
   const parseErrors: ParseError[] = [];
@@ -187,7 +195,8 @@ function resolveReference(
   role: PackDocumentRole,
   rawValue: unknown,
   diagnostics: WorkspaceDiagnostic[],
-  expectedKind: 'file' | 'directory'
+  expectedKind: 'file' | 'directory',
+  overlays: ReadonlyMap<string, string>
 ): PackPathReference | undefined {
   if (typeof rawValue !== 'string') {
     diagnostics.push({
@@ -228,9 +237,12 @@ function resolveReference(
     return undefined;
   }
 
-  const exists = fs.existsSync(absolutePath);
+  const overlayExists = expectedKind === 'file' && overlays.has(comparisonKey(absolutePath));
+  const exists = overlayExists || fs.existsSync(absolutePath);
   let valid = true;
-  if (exists) {
+  if (overlayExists) {
+    valid = true;
+  } else if (exists) {
     const canonicalRoot = canonicalExistingPath(packRoot);
     const canonicalTarget = canonicalExistingPath(absolutePath);
     if (!isWithin(canonicalRoot, canonicalTarget)) {
@@ -280,10 +292,14 @@ function resolveReference(
   });
 }
 
-function buildPack(manifestPath: string, generation: number): MutablePack {
+function buildPack(
+  manifestPath: string,
+  generation: number,
+  overlays: ReadonlyMap<string, string>
+): MutablePack {
   const rootPath = path.dirname(manifestPath);
   const diagnostics: WorkspaceDiagnostic[] = [];
-  const manifest = readRootManifest(manifestPath, diagnostics);
+  const manifest = readRootManifest(manifestPath, diagnostics, overlays.get(comparisonKey(manifestPath)));
   const pack: MutablePack = {
     rootPath,
     manifestPath,
@@ -304,7 +320,7 @@ function buildPack(manifestPath: string, generation: number): MutablePack {
     });
   } else if (Array.isArray(manifest.fragments)) {
     for (const rawPath of manifest.fragments) {
-      const reference = resolveReference(rootPath, 'fragment', rawPath, diagnostics, 'file');
+      const reference = resolveReference(rootPath, 'fragment', rawPath, diagnostics, 'file', overlays);
       if (!reference) continue;
       const key = comparisonKey(reference.absolutePath);
       if (seenPaths.has(key)) {
@@ -322,10 +338,10 @@ function buildPack(manifestPath: string, generation: number): MutablePack {
   }
 
   if (manifest.settings !== undefined) {
-    pack.settings = resolveReference(rootPath, 'settings', manifest.settings, diagnostics, 'file');
+    pack.settings = resolveReference(rootPath, 'settings', manifest.settings, diagnostics, 'file', overlays);
   }
   if (manifest.shaderRoot !== undefined) {
-    pack.shaderRoot = resolveReference(rootPath, 'shaderRoot', manifest.shaderRoot, diagnostics, 'directory');
+    pack.shaderRoot = resolveReference(rootPath, 'shaderRoot', manifest.shaderRoot, diagnostics, 'directory', overlays);
   }
   pack.valid = diagnostics.length === 0;
   return pack;
@@ -342,6 +358,7 @@ function freezePack(pack: MutablePack): ShaderPackProject {
 export class WorkspacePackDiscovery {
   private workspaceFolders: string[];
   private readonly excludedDirectories: ReadonlySet<string>;
+  private readonly overlays = new Map<string, string>();
   private current: WorkspaceDiscoverySnapshot = Object.freeze({
     generation: 0,
     packs: Object.freeze([]),
@@ -375,7 +392,7 @@ export class WorkspacePackDiscovery {
 
     const mutablePacks = [...manifestByKey.values()]
       .sort((left, right) => left.localeCompare(right))
-      .map(manifestPath => buildPack(manifestPath, generation));
+      .map(manifestPath => buildPack(manifestPath, generation, this.overlays));
     const ownership = this.createOwnershipMap(mutablePacks);
     const ambiguousDocuments: AmbiguousDocument[] = [];
     for (const item of ownership.values()) {
@@ -413,6 +430,20 @@ export class WorkspacePackDiscovery {
 
   handleFileEvents(changedPaths: readonly string[]): WorkspaceDiscoverySnapshot {
     return changedPaths.some(changedPath => this.isRelevantFileEvent(changedPath))
+      ? this.refresh()
+      : this.current;
+  }
+
+  setDocumentOverlay(filePath: string, text: string): WorkspaceDiscoverySnapshot {
+    this.overlays.set(comparisonKey(filePath), text);
+    return path.basename(filePath).toLowerCase() === 'shaderpack.json'
+      ? this.refresh()
+      : this.current;
+  }
+
+  clearDocumentOverlay(filePath: string): WorkspaceDiscoverySnapshot {
+    this.overlays.delete(comparisonKey(filePath));
+    return path.basename(filePath).toLowerCase() === 'shaderpack.json'
       ? this.refresh()
       : this.current;
   }

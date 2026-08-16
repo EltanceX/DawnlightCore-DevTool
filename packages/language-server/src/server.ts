@@ -12,12 +12,15 @@ import * as path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import {
   CONTRACT_VERSIONS,
+  DawnlightWorkspaceCompositionSnapshot,
   DawnlightWorkspaceSnapshot,
   DawnlightInitializeOptions,
   LSP_METHODS,
   SERVER_CAPABILITIES
 } from '@dawnlight/contracts';
 import { DawnlightSchemaService, DynamicSchemaRole } from './schemaService';
+import { JsoncDocumentStore } from './jsoncDocuments';
+import { WorkspaceCompositionManager } from './composition';
 import {
   PackPathReference,
   ShaderPackProject,
@@ -28,6 +31,8 @@ const connection = createConnection(ProposedFeatures.all);
 const documents = new TextDocuments(TextDocument);
 const discovery = new WorkspacePackDiscovery([]);
 const schemaService = new DawnlightSchemaService(path.resolve(__dirname, '..', 'schemas'));
+const documentStore = new JsoncDocumentStore();
+const composition = new WorkspaceCompositionManager(documentStore);
 let initializedWorkspaceFolders: string[] = [];
 
 function uriToPath(uri: string): string | undefined {
@@ -73,6 +78,26 @@ function workspaceSnapshot(): DawnlightWorkspaceSnapshot {
     ambiguousDocumentUris: discovery.snapshot.ambiguousDocuments.map(document =>
       pathToFileURL(document.absolutePath).toString())
   };
+}
+
+function compositionSnapshot(): DawnlightWorkspaceCompositionSnapshot {
+  return {
+    generation: composition.snapshot.generation,
+    projects: composition.snapshot.projects
+  };
+}
+
+function rebuildComposition(): void {
+  void composition.rebuild(discovery.snapshot).catch(error => {
+    connection.console.error(`Could not compose Dawnlight workspace: ${(error as Error).message}`);
+  });
+}
+
+function notifyWorkspaceChanged(snapshot: ReturnType<WorkspacePackDiscovery['refresh']>): void {
+  connection.console.info(
+    `Dawnlight workspace generation ${snapshot.generation}: ${snapshot.packs.length} pack(s).`
+  );
+  for (const document of documents.all()) void validateDocument(document);
 }
 
 function dynamicSchemaRole(documentPath: string): DynamicSchemaRole | undefined {
@@ -124,10 +149,8 @@ function refreshWorkspace(changedPaths: readonly string[] = []): void {
     ? discovery.handleFileEvents(changedPaths)
     : discovery.refresh();
   if (snapshot === previous) return;
-  connection.console.info(
-    `Dawnlight workspace generation ${snapshot.generation}: ${snapshot.packs.length} pack(s).`
-  );
-  for (const document of documents.all()) void validateDocument(document);
+  notifyWorkspaceChanged(snapshot);
+  rebuildComposition();
 }
 
 connection.onInitialize(params => {
@@ -175,6 +198,7 @@ connection.onInitialize(params => {
 
 connection.onInitialized(() => {
   discovery.setWorkspaceFolders(initializedWorkspaceFolders);
+  rebuildComposition();
   connection.console.info('Dawnlight language server initialized.');
   connection.console.info(
     `Dawnlight workspace generation ${discovery.snapshot.generation}: ` +
@@ -197,6 +221,7 @@ connection.onNotification(
     initializedWorkspaceFolders = [...remaining, ...added];
     discovery.setWorkspaceFolders(initializedWorkspaceFolders);
     for (const document of documents.all()) void validateDocument(document);
+    rebuildComposition();
   }
 );
 
@@ -204,10 +229,12 @@ connection.onDidChangeWatchedFiles((params: DidChangeWatchedFilesParams) => {
   const changedPaths = params.changes
     .map(change => uriToPath(change.uri))
     .filter((changedPath): changedPath is string => changedPath !== undefined);
+  for (const changedPath of changedPaths) documentStore.invalidate(changedPath);
   refreshWorkspace(changedPaths);
 });
 
 connection.onRequest(LSP_METHODS.workspaceSnapshot, () => workspaceSnapshot());
+connection.onRequest(LSP_METHODS.compositionSnapshot, () => compositionSnapshot());
 
 connection.onCompletion(params => {
   const document = documents.get(params.textDocument.uri);
@@ -221,15 +248,38 @@ connection.onHover(params => {
 
 documents.onDidOpen(event => {
   const documentPath = uriToPath(event.document.uri);
-  if (documentPath) discovery.locatePackForDocument(documentPath);
+  documentStore.open(event.document.uri, event.document.getText(), event.document.version);
+  if (documentPath) {
+    discovery.locatePackForDocument(documentPath);
+    const previous = discovery.snapshot;
+    const next = discovery.setDocumentOverlay(documentPath, event.document.getText());
+    if (next !== previous) notifyWorkspaceChanged(next);
+  }
+  rebuildComposition();
   void validateDocument(event.document);
 });
 
 documents.onDidChangeContent(event => {
+  documentStore.update(event.document.uri, event.document.getText(), event.document.version);
+  const documentPath = uriToPath(event.document.uri);
+  if (documentPath) {
+    const previous = discovery.snapshot;
+    const next = discovery.setDocumentOverlay(documentPath, event.document.getText());
+    if (next !== previous) notifyWorkspaceChanged(next);
+  }
+  rebuildComposition();
   void validateDocument(event.document);
 });
 
 documents.onDidClose(event => {
+  const documentPath = uriToPath(event.document.uri);
+  documentStore.close(event.document.uri);
+  if (documentPath) {
+    const previous = discovery.snapshot;
+    const next = discovery.clearDocumentOverlay(documentPath);
+    if (next !== previous) notifyWorkspaceChanged(next);
+  }
+  rebuildComposition();
   schemaService.setRole(event.document, undefined);
   connection.sendDiagnostics({ uri: event.document.uri, diagnostics: [] });
 });

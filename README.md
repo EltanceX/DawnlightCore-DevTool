@@ -15,9 +15,9 @@ Version `0.1.0` provides local JSON Schema validation, field/value completion, h
 
 The packaged extension requires VS Code `1.90` or newer.
 
-The V2-1 development milestone adds workspace shader-pack discovery. The bundled Language Server discovers one or more `shaderpack.json` roots, tracks their explicitly declared fragments/settings/shader root, and associates arbitrary fragment and Settings UI paths with the correct Schema.
+The V2-2 development milestone adds JSONC document snapshots and ordered composition. The bundled Language Server now keeps unsaved document overlays, precise AST ranges and document versions, and composes pack definitions in root fragment order while isolating malformed fragments.
 
-Pack-local IDs, composed definitions, unsaved JSONC overlays, Catalog IDs, cross-file references, shader code and production runtime diagnostics remain planned work beginning with V2-2.
+Pack-local symbol indexes, Catalog IDs, cross-file navigation, shader code and production runtime diagnostics remain planned work beginning with V2-3.
 
 ## Local development
 
@@ -50,7 +50,8 @@ npm run test:vscode
 
 `npm test` builds the TypeScript projects and bundles, runs the original Schema
 regression suite, and exercises the Language Server as an independent stdio
-process. `npm run typecheck` performs a strict TypeScript project build.
+process, including JSONC overlays and composition. `npm run typecheck` performs
+a strict TypeScript project build.
 
 `test:vscode` is skipped by default. To run the real VS Code smoke test, set
 `DAWNLIGHT_RUN_VSCODE_TEST=1` and optionally `DAWNLIGHT_VSCODE_PATH` to the

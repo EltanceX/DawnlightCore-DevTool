@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased - V2-2
+
+- Added JSONC document snapshots with comments, trailing commas, syntax errors, precise AST ranges, source kind, and LSP document versions.
+- Added unsaved overlay priority over disk content without writing edits back to pack files.
+- Added ordered root-fragment composition for options, resources, programs, and passes, including forward references and local definition ranges.
+- Added malformed-fragment isolation, atomic composition generations, cancellation, and stale-result rejection.
+- Added composition snapshot LSP contract and tests for root reorder, document version changes, and unsaved definitions.
+
 ## Unreleased - V2-1
 
 - Added multi-root workspace discovery for one or more `shaderpack.json` projects.

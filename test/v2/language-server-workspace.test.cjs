@@ -20,6 +20,15 @@ function completionLabels(result) {
   }));
 }
 
+async function waitForComposition(harness, predicate) {
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    const snapshot = await harness.sendRequest(LSP_METHODS.compositionSnapshot);
+    if (predicate(snapshot)) return snapshot;
+    await new Promise(resolve => setTimeout(resolve, 20));
+  }
+  return harness.sendRequest(LSP_METHODS.compositionSnapshot);
+}
+
 test('language server discovers a workspace and associates arbitrary schema paths', async t => {
   const { harness } = await LspTestHarness.start(serverPath, {
     clientProtocolVersion: CONTRACT_VERSIONS.languageServerProtocol
@@ -33,6 +42,10 @@ test('language server discovers a workspace and associates arbitrary schema path
   assert.equal(snapshot.packs[0].id, 'example:arbitrary_paths');
   assert.deepEqual(snapshot.packs[0].fragments.map(item => item.path), ['config/pipeline.json']);
   assert.equal(snapshot.packs[0].settings.path, 'authoring/settings-ui.json');
+
+  const initialComposition = await waitForComposition(harness, value =>
+    value.generation > 0 && value.projects.length === 1);
+  assert.equal(initialComposition.projects[0].documents.length, 3);
 
   const fragmentPath = path.join(fixtureRoot, 'config', 'pipeline.json');
   const fragmentUri = pathToFileURL(fragmentPath).toString();
@@ -51,6 +64,17 @@ test('language server discovers a workspace and associates arbitrary schema path
   const fragmentLabels = completionLabels(fragmentCompletion);
   assert.ok(fragmentLabels.has('options'), [...fragmentLabels].join(', '));
   assert.ok(fragmentLabels.has('resources'), [...fragmentLabels].join(', '));
+
+  harness.sendNotification('textDocument/didChange', {
+    textDocument: { uri: fragmentUri, version: 2 },
+    contentChanges: [{
+      text: '// unsaved\n{\n  "options": [{"id": "example:unsaved"}],\n}\n'
+    }]
+  });
+  const overlayComposition = await waitForComposition(harness, value =>
+    value.projects[0]?.definitions.options.some(item => item.id === 'example:unsaved'));
+  assert.equal(overlayComposition.projects[0].documents.find(document =>
+    document.uri === fragmentUri).version, 2);
 
   const settingsPath = path.join(fixtureRoot, 'authoring', 'settings-ui.json');
   const settingsUri = pathToFileURL(settingsPath).toString();
