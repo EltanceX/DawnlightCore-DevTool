@@ -6,6 +6,8 @@
   "types": "dist/server.d.ts",
   "dependencies": {
     "@dawnlight/contracts": "0.2.0",
+    "jsonc-parser": "^3.3.1",
+    "vscode-json-languageservice": "^5.4.3",
     "vscode-languageserver": "^9.0.1",
     "vscode-languageserver-textdocument": "^1.0.12"
   }

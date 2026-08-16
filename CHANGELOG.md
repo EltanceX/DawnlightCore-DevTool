@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased - V2-1
+
+- Added multi-root workspace discovery for one or more `shaderpack.json` projects.
+- Added normalized pack-relative fragment, settings, and shader-root references with default build/dependency directory exclusions.
+- Added stable discovery diagnostics for invalid, duplicate, self-including, missing, escaping, and ambiguously owned paths.
+- Added atomic workspace generations and refresh handling for roots, tracked files, and workspace-folder changes.
+- Added Language Server Schema completion, Hover, and diagnostics for explicitly referenced fragment/settings files outside the first-version static directory layout.
+- Added isolated multi-pack, nested-pack, malformed-root, file-event, LSP process, real VS Code, and installed-VSIX coverage.
+
 ## Unreleased - V2-0
 
 - Added npm workspaces and strict TypeScript project references for contracts, Language Server, VS Code client, and shared test utilities.

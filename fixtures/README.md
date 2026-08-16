@@ -15,4 +15,8 @@ These fixtures are intentionally small and do not contain shader sources or larg
 - `invalid/invalid-enum`: resource `kind` uses an unsupported value.
 - `invalid/missing-required`: root omits the required `version` property.
 
-The fixtures exercise Schema shape and editor completion only. They are not production runtime validation cases.
+## Workspace fixtures
+
+- `workspace/arbitrary-fragment-path`: a composed pack whose fragment and Settings UI files are deliberately outside the first-version static directory layout; it also contains an untracked JSON isolation case.
+
+The valid/invalid fixtures exercise Schema shape and editor completion. Workspace fixtures exercise Language Server discovery and document-role association. They are not production runtime validation cases.

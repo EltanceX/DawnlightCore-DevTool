@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "pages": [
+    {
+      "id": "main",
+      "title": "page.main",
+      "groups": [
+        {
+          "id": "general",
+          "title": "group.general",
+          "controls": [
+            {
+              "id": "enabled",
+              "option": "example:enabled",
+              "widget": "toggle",
+              "label": "option.enabled"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

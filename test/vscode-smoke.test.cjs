@@ -18,6 +18,17 @@ function errorsFor(uri) {
     .filter(item => item.severity === vscode.DiagnosticSeverity.Error);
 }
 
+function completionLabels(items) {
+  return new Set((items?.items || []).map(item => {
+    const label = typeof item.label === 'string' ? item.label : item.label.label;
+    try {
+      return JSON.parse(label);
+    } catch {
+      return label;
+    }
+  }));
+}
+
 suite('Dawnlight declarative schema smoke test', () => {
   test('extension activates its language client and exposes contract versions', async () => {
     const extension = vscode.extensions.getExtension(
@@ -160,5 +171,52 @@ suite('Dawnlight declarative schema smoke test', () => {
       typeof item.label === 'string' ? item.label : item.label.label));
     assert.equal(errorsFor(uri).length, 0);
     assert.equal(labels.has('manifestVersion'), false, [...labels].join(', '));
+  });
+
+  test('discovered arbitrary fragment and settings paths receive their schemas', async () => {
+    const cases = [
+      {
+        relativePath: 'fixtures/workspace/arbitrary-fragment-path/config/pipeline.json',
+        expected: ['options', 'resources', 'programs', 'passes']
+      },
+      {
+        relativePath: 'fixtures/workspace/arbitrary-fragment-path/authoring/settings-ui.json',
+        expected: ['schemaVersion', 'pages']
+      }
+    ];
+    for (const item of cases) {
+      const uri = fixtureUri(item.relativePath);
+      const document = await vscode.workspace.openTextDocument(uri);
+      const editor = await vscode.window.showTextDocument(document);
+      await editor.edit(edit => edit.replace(
+        new vscode.Range(document.positionAt(0), document.positionAt(document.getText().length)),
+        '{\n  \n}\n'
+      ));
+      const completions = await vscode.commands.executeCommand(
+        'vscode.executeCompletionItemProvider', uri, new vscode.Position(1, 2)
+      );
+      const labels = completionLabels(completions);
+      for (const expected of item.expected) {
+        assert.ok(labels.has(expected), `${item.relativePath}: ${[...labels].join(', ')}`);
+      }
+    }
+  });
+
+  test('untracked JSON inside a pack does not receive a Dawnlight fragment schema', async () => {
+    const uri = fixtureUri(
+      'fixtures/workspace/arbitrary-fragment-path/untracked/ordinary.json'
+    );
+    const document = await vscode.workspace.openTextDocument(uri);
+    const editor = await vscode.window.showTextDocument(document);
+    await editor.edit(edit => edit.replace(
+      new vscode.Range(document.positionAt(0), document.positionAt(document.getText().length)),
+      '{\n  \n}\n'
+    ));
+    const completions = await vscode.commands.executeCommand(
+      'vscode.executeCompletionItemProvider', uri, new vscode.Position(1, 2)
+    );
+    const labels = completionLabels(completions);
+    assert.equal(labels.has('resources'), false, [...labels].join(', '));
+    assert.equal(labels.has('schemaVersion'), false, [...labels].join(', '));
   });
 });

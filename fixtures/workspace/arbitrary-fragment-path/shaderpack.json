@@ -1,0 +1,12 @@
+{
+  "sourceFormatVersion": 1,
+  "manifestVersion": 3,
+  "id": "example:arbitrary_paths",
+  "name": "Arbitrary Path Discovery",
+  "version": "0.1.0",
+  "shaderRoot": "shaders",
+  "settings": "authoring/settings-ui.json",
+  "fragments": [
+    "config/pipeline.json"
+  ]
+}

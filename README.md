@@ -15,9 +15,9 @@ Version `0.1.0` provides local JSON Schema validation, field/value completion, h
 
 The packaged extension requires VS Code `1.90` or newer.
 
-The V2-0 development milestone also adds the TypeScript workspace, versioned contracts, a bundled minimal Language Server and its VS Code Language Client. The server currently provides lifecycle and protocol foundations only; it does not yet change the first-version authoring results.
+The V2-1 development milestone adds workspace shader-pack discovery. The bundled Language Server discovers one or more `shaderpack.json` roots, tracks their explicitly declared fragments/settings/shader root, and associates arbitrary fragment and Settings UI paths with the correct Schema.
 
-Pack-local IDs, workspace discovery, Catalog IDs, cross-file references, shader code and production runtime diagnostics remain planned work beginning with V2-1.
+Pack-local IDs, composed definitions, unsaved JSONC overlays, Catalog IDs, cross-file references, shader code and production runtime diagnostics remain planned work beginning with V2-2.
 
 ## Local development
 
@@ -74,4 +74,4 @@ MyPack/
     ui/settings.json
 ```
 
-Fragments stored elsewhere can still use the Schema manually through the workspace `json.schemas` setting. Dynamic fragment discovery is intentionally deferred to the language-server version.
+Fragments and Settings UI files stored elsewhere receive their Schema automatically when their normalized pack-relative paths are explicitly listed by `shaderpack.json`. Unreferenced JSON files remain ordinary JSON, even when they are located inside a shader pack.

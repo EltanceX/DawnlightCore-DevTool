@@ -33,12 +33,12 @@
   ],
   "scripts": {
     "build": "tsc -b && npm run bundle",
-    "bundle": "esbuild packages/vscode-extension/src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=dist/extension.js && esbuild packages/language-server/src/server.ts --bundle --platform=node --format=cjs --outfile=dist/server.js",
+    "bundle": "esbuild packages/vscode-extension/src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=dist/extension.js && esbuild packages/language-server/src/server.ts --bundle --platform=node --format=cjs --main-fields=module,main --outfile=dist/server.js",
     "package": "npm run build && vsce package --no-dependencies",
     "lint": "node test/quality-check.cjs",
     "typecheck": "tsc -b --pretty false",
     "test": "npm run test:unit",
-    "test:unit": "npm run build && node --test test/schema.test.cjs test/completion.test.cjs test/file-match.test.cjs test/snippet.test.cjs test/v2/contracts.test.cjs test/v2/language-server.test.cjs",
+    "test:unit": "npm run build && node --test test/schema.test.cjs test/completion.test.cjs test/file-match.test.cjs test/snippet.test.cjs test/v2/contracts.test.cjs test/v2/language-server.test.cjs test/v2/workspace-discovery.test.cjs test/v2/language-server-workspace.test.cjs",
     "test:vscode": "npm run build && node test/run-vscode.cjs",
     "test:vsix": "node test/run-vsix-acceptance.cjs",
     "test:all": "npm run test:unit && npm run test:vscode && npm run test:vsix"

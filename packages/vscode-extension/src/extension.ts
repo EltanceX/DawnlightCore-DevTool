@@ -25,8 +25,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<Dawnli
     run: { module: serverModule, transport: TransportKind.ipc },
     debug: { module: serverModule, transport: TransportKind.ipc }
   };
-  const rootWatcher = vscode.workspace.createFileSystemWatcher('**/shaderpack.json');
-  context.subscriptions.push(rootWatcher);
+  const workspaceWatcher = vscode.workspace.createFileSystemWatcher('**/*');
+  context.subscriptions.push(workspaceWatcher);
 
   const clientOptions: LanguageClientOptions = {
     documentSelector: [
@@ -37,7 +37,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Dawnli
       clientProtocolVersion: CONTRACT_VERSIONS.languageServerProtocol
     },
     synchronize: {
-      fileEvents: rootWatcher
+      fileEvents: workspaceWatcher
     }
   };
 

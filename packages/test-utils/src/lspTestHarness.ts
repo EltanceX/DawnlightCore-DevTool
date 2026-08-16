@@ -1,4 +1,5 @@
 import { ChildProcessWithoutNullStreams, spawn } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 import {
   createMessageConnection,
   Logger,
@@ -28,6 +29,10 @@ export interface LanguageServerInitializeResult {
   };
 }
 
+export interface LspTestStartOptions {
+  workspaceFolders?: readonly string[];
+}
+
 export class LspTestHarness {
   private readonly child: ChildProcessWithoutNullStreams;
   private readonly connection: MessageConnection;
@@ -44,7 +49,8 @@ export class LspTestHarness {
 
   static async start(
     serverPath: string,
-    initializationOptions: DawnlightInitializeOptions
+    initializationOptions: DawnlightInitializeOptions,
+    options: LspTestStartOptions = {}
   ): Promise<{ harness: LspTestHarness; result: LanguageServerInitializeResult }> {
     const child = spawn(process.execPath, [serverPath, '--stdio'], {
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -57,15 +63,27 @@ export class LspTestHarness {
     );
     connection.listen();
     const harness = new LspTestHarness(child, connection);
+    const workspaceFolders = (options.workspaceFolders ?? []).map((folder, index) => ({
+      uri: pathToFileURL(folder).toString(),
+      name: `workspace-${index + 1}`
+    }));
     const result = await connection.sendRequest<LanguageServerInitializeResult>('initialize', {
       processId: process.pid,
-      rootUri: null,
+      rootUri: workspaceFolders[0]?.uri ?? null,
       capabilities: {},
-      workspaceFolders: null,
+      workspaceFolders: workspaceFolders.length > 0 ? workspaceFolders : null,
       initializationOptions
     });
     connection.sendNotification('initialized', {});
     return { harness, result };
+  }
+
+  sendRequest<T>(method: string, params?: unknown): Promise<T> {
+    return this.connection.sendRequest<T>(method, params);
+  }
+
+  sendNotification(method: string, params?: unknown): void {
+    this.connection.sendNotification(method, params);
   }
 
   async shutdown(timeoutMs = 5000): Promise<void> {
