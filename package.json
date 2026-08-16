@@ -24,11 +24,19 @@
     "url": "https://example.invalid/dawnlight-core"
   },
   "scripts": {
-    "package": "vsce package --no-dependencies"
+    "package": "vsce package --no-dependencies",
+    "test": "npm run test:unit",
+    "test:unit": "node --test test/schema.test.cjs test/completion.test.cjs test/file-match.test.cjs",
+    "test:vscode": "node test/run-vscode.cjs",
+    "test:all": "npm run test:unit && npm run test:vscode"
   },
   "devDependencies": {
+    "@vscode/test-electron": "^2.5.2",
     "@vscode/vsce": "^3.2.2",
-    "ajv": "^8.17.1"
+    "ajv": "^8.17.1",
+    "jsonc-parser": "^3.3.1",
+    "mocha": "^11.7.1",
+    "vscode-json-languageservice": "^5.4.3"
   },
   "contributes": {
     "jsonValidation": [

@@ -24,6 +24,17 @@ npm run package
 
 The generated VSIX can be installed from VS Code with **Extensions: Install from VSIX...**.
 
+Run the local checks with:
+
+```powershell
+npm test
+npm run test:vscode
+```
+
+`test:vscode` is skipped by default. To run the real VS Code smoke test, set
+`DAWNLIGHT_RUN_VSCODE_TEST=1` and optionally `DAWNLIGHT_VSCODE_PATH` to the
+VS Code `code` executable.
+
 ## Pack layout
 
 The first version uses static VS Code file matching. The recommended layout is:
