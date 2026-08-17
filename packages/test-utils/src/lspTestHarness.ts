@@ -86,6 +86,10 @@ export class LspTestHarness {
     this.connection.sendNotification(method, params);
   }
 
+  onNotification(method: string, handler: (params: unknown) => void): void {
+    this.connection.onNotification(method, handler);
+  }
+
   async shutdown(timeoutMs = 5000): Promise<void> {
     await this.connection.sendRequest('shutdown');
     this.connection.sendNotification('exit');

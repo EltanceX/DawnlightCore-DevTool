@@ -104,6 +104,18 @@ function parentProperty(jsonPath: readonly DawnlightJsonPathSegment[]): string |
   return typeof previous === 'string' ? previous : undefined;
 }
 
+function arrayItemPath(
+  jsonPath: readonly DawnlightJsonPathSegment[],
+  property: string
+): DawnlightJsonPathSegment[] | undefined {
+  for (let index = jsonPath.length - 2; index >= 0; index -= 1) {
+    if (jsonPath[index] === property && typeof jsonPath[index + 1] === 'number') {
+      return jsonPath.slice(0, index + 2);
+    }
+  }
+  return undefined;
+}
+
 function addSettingsSymbols(
   document: JsoncDocumentSnapshot,
   symbols: DawnlightSymbolSnapshot[]
@@ -261,15 +273,22 @@ function collectDocumentReferences(
     const property = parentProperty(jsonPath);
     if (!property) return;
 
-    if (property === 'option') addIdReference(references, document, jsonPath, 'option', value);
+    if (property === 'option' || property === 'hiddenOptions') {
+      addIdReference(references, document, jsonPath, 'option', value);
+    }
     else if (property === 'program' || property === 'programs') {
       addIdReference(references, document, jsonPath, 'program', value);
     } else if ((property === 'before' || property === 'after' || property === 'requires') &&
       jsonPath.includes('ordering')) {
       addIdReference(references, document, jsonPath, 'pass', value);
-    } else if (property === 'resource' || property === 'source' || property === 'destination' ||
-      property === 'inputs' || property === 'outputs') {
+    } else if (property === 'resource' || property === 'inputs' || property === 'outputs') {
       addIdReference(references, document, jsonPath, 'resource', value);
+    } else if (property === 'source' || property === 'destination') {
+      const commandPath = arrayItemPath(jsonPath, 'commands');
+      const commandType = scalarString(document.nodeAtPath([...(commandPath ?? []), 'type']));
+      if (commandPath && commandType === 'copy') {
+        addIdReference(references, document, jsonPath, 'resource', value);
+      }
     }
 
     const isShader = property === 'vertex' || property === 'fragment' ||
@@ -354,7 +373,7 @@ function createPackIndex(
 
   const shaderRoot = pack?.shaderRoot?.absolutePath ?? project.rootUri;
   for (const document of project.documents) {
-    if (document === rootDocument || document === settings) continue;
+    if (document === settings || (document === rootDocument && (pack?.fragments.length ?? 0) > 0)) continue;
     collectDocumentReferences(document, project.rootUri, shaderRoot, references, symbols, fileSymbols);
   }
   collectRootPathReferences(pack ?? {

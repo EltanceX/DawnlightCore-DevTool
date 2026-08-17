@@ -417,6 +417,7 @@ export class DawnlightCompletionService {
       const commandPath = arrayItemPath(jsonPath, 'commands');
       const command = commandPath ? valueAt(document, [...commandPath, 'type']) : undefined;
       const filter = (definition: DefinitionRecord) => {
+        if ((property === 'source' || property === 'destination') && command !== 'copy') return false;
         if (property === 'inputs' || property === 'outputs') return !existingIds.has(definition.id);
         if (property === 'source' || property === 'destination') return definition.id !== current;
         if (command === 'historyCommit') return definition.value.lifetime === 'history';

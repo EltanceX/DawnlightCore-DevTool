@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased - V2-6
+
+- Added fast cross-file JSONC, path, symbol, and graph diagnostics with a 175 ms generation-safe refresh.
+- Added missing/invalid fragment, Settings, shader, and asset path diagnostics with pack-relative ranges.
+- Added duplicate/unknown/ambiguous pack-local ID diagnostics and Settings `hiddenOptions`/coverage references.
+- Added command program kind/list membership, historyCommit lifetime, resource binding/target compatibility, and ordering self-reference diagnostics.
+- Added Settings UI unknown option, duplicate control, widget/type, missing translation-key, and uncovered-option diagnostics.
+- Merged independent diagnostic owners before publishing so Schema, syntax, and L2 results do not erase one another; stale Schema results are discarded.
+- Added LSP integration and VS Code smoke coverage for diagnostic source isolation, malformed overlays, stale results, and multi-file graph rules.
+
 ## Unreleased - V2-5
 
 - Added pack-local Definition and References for option, resource, program, and pass IDs across fragments and Settings UI.

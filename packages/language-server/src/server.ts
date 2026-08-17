@@ -2,6 +2,7 @@ import {
   createConnection,
   DidChangeWatchedFilesParams,
   DidChangeWorkspaceFoldersParams,
+  Diagnostic,
   ErrorCodes,
   InitializeResult,
   ProposedFeatures,
@@ -14,6 +15,7 @@ import * as path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import {
   CONTRACT_VERSIONS,
+  createDiagnosticCode,
   DawnlightWorkspaceCompositionSnapshot,
   DawnlightWorkspaceSnapshot,
   DawnlightInitializeOptions,
@@ -25,6 +27,11 @@ import { JsoncDocumentStore } from './jsoncDocuments';
 import { WorkspaceCompositionManager } from './composition';
 import { WorkspaceSymbolIndexManager } from './symbols';
 import { DawnlightCompletionService, mergeCompletionResults } from './completion';
+import {
+  DawnlightFastDiagnosticService,
+  FAST_DIAGNOSTIC_SOURCES,
+  FastDiagnosticSource
+} from './diagnostics';
 import {
   DawnlightNavigationService,
   DawnlightRenameError,
@@ -49,6 +56,12 @@ const dynamicCompletion = new DawnlightCompletionService(documentStore, {
   symbols: symbolIndex
 });
 const navigation = new DawnlightNavigationService(documentStore, composition, symbolIndex);
+const fastDiagnosticService = new DawnlightFastDiagnosticService();
+const schemaDiagnostics = new Map<string, readonly Diagnostic[]>();
+const fastDiagnostics = new Map<FastDiagnosticSource, ReadonlyMap<string, readonly Diagnostic[]>>();
+const knownDiagnosticUris = new Set<string>();
+let fastDiagnosticTimer: NodeJS.Timeout | undefined;
+let fastDiagnosticRequest = 0;
 let initializedWorkspaceFolders: string[] = [];
 
 function uriToPath(uri: string): string | undefined {
@@ -107,9 +120,51 @@ function symbolSnapshot() {
   return symbolIndex.snapshot;
 }
 
+function publishMergedDiagnostics(uri: string): void {
+  const diagnostics: Diagnostic[] = [...(schemaDiagnostics.get(uri) ?? [])];
+  for (const source of FAST_DIAGNOSTIC_SOURCES) {
+    diagnostics.push(...(fastDiagnostics.get(source)?.get(uri) ?? []));
+  }
+  connection.sendDiagnostics({ uri, diagnostics });
+}
+
+function publishFastDiagnostics(changedPaths: readonly string[] = []): void {
+  const request = ++fastDiagnosticRequest;
+  if (fastDiagnosticTimer) clearTimeout(fastDiagnosticTimer);
+  fastDiagnosticTimer = setTimeout(() => {
+    if (request !== fastDiagnosticRequest) return;
+    const discoverySnapshot = discovery.snapshot;
+    const compositionSnapshot = composition.snapshot;
+    const symbolSnapshotValue = symbolIndex.snapshot;
+    const result = fastDiagnosticService.compute(
+      discoverySnapshot,
+      compositionSnapshot,
+      symbolSnapshotValue,
+      changedPaths
+    );
+    if (request !== fastDiagnosticRequest ||
+      composition.snapshot.generation !== result.compositionGeneration ||
+      symbolIndex.snapshot.generation !== result.symbolGeneration) {
+      publishFastDiagnostics(changedPaths);
+      return;
+    }
+    for (const source of FAST_DIAGNOSTIC_SOURCES) {
+      const sourceMap = result.bySource.get(source) ?? new Map();
+      fastDiagnostics.set(source, sourceMap);
+      for (const uri of sourceMap.keys()) knownDiagnosticUris.add(uri);
+    }
+    for (const uri of knownDiagnosticUris) publishMergedDiagnostics(uri);
+  }, 175);
+}
+
 function rebuildComposition(changedPaths: readonly string[] = []): void {
   void composition.rebuild(discovery.snapshot).then(result => {
-    if (result.applied) return symbolIndex.rebuild(result.snapshot, discovery.snapshot, changedPaths);
+    if (result.applied) {
+      return symbolIndex.rebuild(result.snapshot, discovery.snapshot, changedPaths).then(indexResult => {
+        if (indexResult.applied) publishFastDiagnostics(changedPaths);
+        return indexResult;
+      });
+    }
     return undefined;
   }).catch(error => {
     connection.console.error(`Could not compose Dawnlight workspace: ${(error as Error).message}`);
@@ -138,6 +193,7 @@ function dynamicSchemaRole(documentPath: string): DynamicSchemaRole | undefined 
 }
 
 async function validateDocument(document: TextDocument): Promise<void> {
+  const documentVersion = document.version;
   const documentPath = uriToPath(document.uri);
   const role = documentPath ? dynamicSchemaRole(documentPath) : undefined;
   schemaService.setRole(document, role);
@@ -152,18 +208,19 @@ async function validateDocument(document: TextDocument): Promise<void> {
       );
     }
   }
-  connection.sendDiagnostics({
-    uri: document.uri,
-    diagnostics: diagnostics.map(diagnostic => ({
+  if (documents.get(document.uri)?.version !== documentVersion) return;
+  schemaDiagnostics.set(document.uri, diagnostics.map(diagnostic => ({
       range: diagnostic.range,
       message: typeof diagnostic.message === 'string'
         ? diagnostic.message
         : diagnostic.message.value,
       severity: diagnostic.severity,
-      code: diagnostic.code,
+      code: createDiagnosticCode('schema', 1),
+      data: { originalCode: diagnostic.code },
       source: 'dawnlight-schema'
-    }))
-  });
+    })));
+  knownDiagnosticUris.add(document.uri);
+  publishMergedDiagnostics(document.uri);
 }
 
 function refreshWorkspace(changedPaths: readonly string[] = []): void {
@@ -358,10 +415,17 @@ documents.onDidClose(event => {
   }
   rebuildComposition(documentPath ? [documentPath] : []);
   schemaService.setRole(event.document, undefined);
-  connection.sendDiagnostics({ uri: event.document.uri, diagnostics: [] });
+  schemaDiagnostics.delete(event.document.uri);
+  knownDiagnosticUris.add(event.document.uri);
+  publishMergedDiagnostics(event.document.uri);
 });
 
-connection.onShutdown(() => undefined);
+connection.onShutdown(() => {
+  if (fastDiagnosticTimer) clearTimeout(fastDiagnosticTimer);
+  fastDiagnosticTimer = undefined;
+  fastDiagnosticRequest += 1;
+  return undefined;
+});
 
 documents.listen(connection);
 connection.listen();
