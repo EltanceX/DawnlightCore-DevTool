@@ -122,15 +122,15 @@ test('resource completion exposes lifetime values', async () => {
   }
 });
 
-test('resource completion exposes texture formats', async () => {
+test('resource format IDs are not hard-coded into the structural Schema', async () => {
   const result = await complete(
     'shaderpack-manifest-v3-fragment.schema.json',
     'fixtures/completion/manifest/resources/main.json',
     '{\n  "resources": [{\n    "id": "example:resource",\n    "kind": "texture2D",\n    "lifetime": "persistent",\n    "size": {"mode": "viewport"},\n    "format": "|"\n  }]\n}'
   );
   const values = labels(result);
-  for (const expected of ['r8', 'rgba8', 'rgba16f', 'depth24', 'depth32f']) {
-    assert.ok(values.has(expected), `${expected} missing from ${[...values].join(', ')}`);
+  for (const catalogId of ['r8', 'rgba8', 'rgba16f', 'depth24', 'depth32f']) {
+    assert.equal(values.has(catalogId), false, `${catalogId} must come from Catalog completion`);
   }
 });
 

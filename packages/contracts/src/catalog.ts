@@ -4,12 +4,19 @@ export const CATALOG_SNAPSHOT_CONTRACT_VERSION = 1 as const;
 
 export type CatalogValueKind =
   | 'boolean'
+  | 'float'
+  | 'int'
+  | 'uint'
+  | 'intVector3'
   | 'integer'
   | 'number'
   | 'string'
   | 'vec2'
   | 'vec3'
   | 'vec4'
+  | 'vector2'
+  | 'vector3'
+  | 'vector4'
   | 'matrix3'
   | 'matrix4'
   | 'color'
@@ -58,6 +65,7 @@ export interface CatalogSemantic extends CatalogEntryBase {
 
 export interface CatalogEngineDrawProvider extends CatalogEntryBase {
   command?: string;
+  requiredServices?: readonly string[];
   requiredCapabilities?: readonly string[];
 }
 

@@ -94,7 +94,9 @@ test('language server exposes bundled Catalog source and hash without a workspac
   assert.equal(catalog.snapshot.contractVersion, 1);
   assert.equal(catalog.snapshot.host.id, 'dawnlight');
   assert.equal(catalog.snapshot.host.version, '3.1');
-  assert.deepEqual(catalog.snapshot.stageTemplates, []);
+  assert.ok(catalog.snapshot.stageTemplates.some(entry => entry.id === 'dawnlight:fullscreen'));
+  assert.ok(catalog.snapshot.services.some(entry => entry.id === 'dawnlight:scene_target'));
+  assert.ok(catalog.snapshot.semantics.some(entry => entry.id === 'dawnlight:camera/view_matrix'));
   assert.deepEqual(catalog.negotiation, {
     clientSupportedVersions: [1],
     serverSupportedVersions: [1],

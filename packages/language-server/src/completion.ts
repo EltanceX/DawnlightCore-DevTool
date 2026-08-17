@@ -11,6 +11,10 @@ import {
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getNodeValue } from 'jsonc-parser';
+import {
+  CatalogEntryBase,
+  CatalogSnapshotState
+} from '@dawnlight/contracts';
 import { WorkspaceCompositionManager, PackComposition, DefinitionRecord } from './composition';
 import { JsoncDocumentSnapshot, JsoncDocumentStore } from './jsoncDocuments';
 import { WorkspaceSymbolIndexManager } from './symbols';
@@ -24,6 +28,7 @@ interface CompletionSource {
   discovery: WorkspacePackDiscovery;
   composition: WorkspaceCompositionManager;
   symbols: WorkspaceSymbolIndexManager;
+  catalog: () => CatalogSnapshotState;
 }
 
 interface PackContext {
@@ -38,6 +43,14 @@ interface PathCacheEntry {
 }
 
 const dynamicRank = 0;
+
+type CatalogEntryKind =
+  | 'stage template'
+  | 'service'
+  | 'semantic'
+  | 'EngineDraw provider'
+  | 'capability'
+  | 'resource format';
 
 function keyForPath(value: string): string {
   const normalized = path.normalize(path.resolve(value));
@@ -222,6 +235,49 @@ function definitionItems(
   ));
 }
 
+function catalogDetail(
+  entry: CatalogEntryBase & { valueKind?: string; requiredServices?: readonly string[] },
+  kind: CatalogEntryKind,
+  catalog: CatalogSnapshotState
+): string {
+  const parts = [`Catalog ${kind}`, `v${entry.version}`];
+  if (entry.valueKind) parts.push(entry.valueKind);
+  if (entry.requiredServices?.length) parts.push(`requires ${entry.requiredServices.join(', ')}`);
+  if (entry.deprecated) parts.push('deprecated');
+  parts.push(catalog.source);
+  return parts.join(' · ');
+}
+
+function catalogItems<TEntry extends CatalogEntryBase>(
+  entries: readonly TEntry[],
+  range: Range,
+  kind: CatalogEntryKind,
+  catalog: CatalogSnapshotState
+): CompletionItem[] {
+  const rank = catalog.source === 'external' ? 1 : 2;
+  const byId = new Map<string, TEntry>();
+  for (const entry of entries) {
+    const current = byId.get(entry.id);
+    if (!current || entry.version > current.version) byId.set(entry.id, entry);
+  }
+  return [...byId.values()].sort((left, right) => left.id.localeCompare(right.id)).map(entry =>
+    stringItem(entry.id, range, catalogDetail(entry, kind, catalog), CompletionItemKind.Reference, rank));
+}
+
+function catalogVersionItems<TEntry extends CatalogEntryBase>(
+  entries: readonly TEntry[],
+  selectedId: string | undefined,
+  range: Range,
+  kind: CatalogEntryKind,
+  catalog: CatalogSnapshotState
+): CompletionItem[] {
+  if (!selectedId) return [];
+  const rank = catalog.source === 'external' ? 1 : 2;
+  return entries.filter(entry => entry.id === selectedId)
+    .sort((left, right) => left.version - right.version)
+    .map(entry => valueItem(entry.version, range, catalogDetail(entry, kind, catalog), rank));
+}
+
 function currentStringValue(document: JsoncDocumentSnapshot, jsonPath: readonly (string | number)[]): string | undefined {
   const value = valueAt(document, jsonPath);
   return typeof value === 'string' ? value : undefined;
@@ -370,6 +426,8 @@ export class DawnlightCompletionService {
         ? jsonPath[jsonPath.length - 2] as string
         : undefined;
     const items: CompletionItem[] = [];
+    const catalog = this.source.catalog();
+    const catalogAvailable = catalog.negotiation.compatible && catalog.hashValid;
     if (property === 'fragments' || arrayProperty(jsonPath, 'fragments')) {
       items.push(...this.pathItems(pack, document, jsonPath, range, 'fragment'));
     }
@@ -384,6 +442,9 @@ export class DawnlightCompletionService {
     }
     if (property === 'option') {
       items.push(...definitionItems(composition.definitions.option, range, CompletionItemKind.Reference));
+    }
+    if (catalogAvailable) {
+      items.push(...this.catalogItems(document, jsonPath, property, range, catalog));
     }
     if (property === 'program' || property === 'programs') {
       const command = commandType(document, jsonPath);
@@ -463,6 +524,74 @@ export class DawnlightCompletionService {
       items.push(...definitionItems(composition.definitions.program, range));
     }
     return items;
+  }
+
+  private catalogItems(
+    document: JsoncDocumentSnapshot,
+    jsonPath: readonly (string | number)[],
+    property: string | undefined,
+    range: Range,
+    catalog: CatalogSnapshotState
+  ): CompletionItem[] {
+    const snapshot = catalog.snapshot;
+    const servicePath = arrayItemPath(jsonPath, 'services');
+    const semanticPath = arrayItemPath(jsonPath, 'semantics');
+    const passPath = arrayItemPath(jsonPath, 'passes');
+    const stagePath = passPath ? [...passPath, 'stage'] : undefined;
+    const providerIndex = jsonPath.lastIndexOf('provider');
+    const providerPath = providerIndex >= 0 ? jsonPath.slice(0, providerIndex + 1) : undefined;
+    const command = commandType(document, jsonPath);
+
+    if (property === 'template' && stagePath && jsonPath.includes('stage')) {
+      return catalogItems(snapshot.stageTemplates, range, 'stage template', catalog);
+    }
+    if (property === 'semantic' && semanticPath) {
+      return catalogItems(snapshot.semantics, range, 'semantic', catalog);
+    }
+    if (property === 'capability') {
+      return catalogItems(snapshot.capabilities, range, 'capability', catalog);
+    }
+    if (property === 'format' && arrayItemPath(jsonPath, 'resources')) {
+      const resourcePath = arrayItemPath(jsonPath, 'resources');
+      const resourceKind = resourcePath ? valueAt(document, [...resourcePath, 'kind']) : undefined;
+      const formats = resourceKind === 'textureCube'
+        ? snapshot.resourceFormats.filter(format => !format.depth)
+        : snapshot.resourceFormats;
+      return catalogItems(formats, range, 'resource format', catalog);
+    }
+    if (property === 'service' && jsonPath.includes('content')) {
+      return catalogItems(snapshot.services, range, 'service', catalog);
+    }
+    if (property === 'id' && servicePath) {
+      return catalogItems(snapshot.services, range, 'service', catalog);
+    }
+    if (property === 'id' && providerPath && command === 'engineDraw') {
+      return catalogItems(snapshot.engineDrawProviders, range, 'EngineDraw provider', catalog);
+    }
+    if (property !== 'version') return [];
+    if (stagePath && jsonPath.includes('stage')) {
+      const id = currentStringValue(document, [...stagePath, 'template']);
+      return catalogVersionItems(snapshot.stageTemplates, id, range, 'stage template', catalog);
+    }
+    if (semanticPath) {
+      const id = currentStringValue(document, [...semanticPath, 'semantic']);
+      return catalogVersionItems(snapshot.semantics, id, range, 'semantic', catalog);
+    }
+    if (servicePath) {
+      const id = currentStringValue(document, [...servicePath, 'id']);
+      return catalogVersionItems(snapshot.services, id, range, 'service', catalog);
+    }
+    if (providerPath && command === 'engineDraw') {
+      const id = currentStringValue(document, [...providerPath, 'id']);
+      return catalogVersionItems(snapshot.engineDrawProviders, id, range, 'EngineDraw provider', catalog);
+    }
+    if (jsonPath.includes('content')) {
+      const contentIndex = jsonPath.lastIndexOf('content');
+      const contentPath = jsonPath.slice(0, contentIndex + 1);
+      const id = currentStringValue(document, [...contentPath, 'service']);
+      return catalogVersionItems(snapshot.services, id, range, 'service', catalog);
+    }
+    return [];
   }
 
   private pathItems(

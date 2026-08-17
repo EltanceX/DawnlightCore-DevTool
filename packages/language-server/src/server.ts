@@ -48,18 +48,19 @@ const connection = createConnection(ProposedFeatures.all);
 const documents = new TextDocuments(TextDocument);
 const discovery = new WorkspacePackDiscovery([]);
 const schemaService = new DawnlightSchemaService(path.resolve(__dirname, '..', 'schemas'));
+const bundledCatalogDirectory = path.resolve(__dirname, '..', 'catalogs');
+let catalogState = resolveCatalogSnapshot(bundledCatalogDirectory);
 const documentStore = new JsoncDocumentStore();
 const composition = new WorkspaceCompositionManager(documentStore);
 const symbolIndex = new WorkspaceSymbolIndexManager();
 const dynamicCompletion = new DawnlightCompletionService(documentStore, {
   discovery,
   composition,
-  symbols: symbolIndex
+  symbols: symbolIndex,
+  catalog: () => catalogState
 });
 const navigation = new DawnlightNavigationService(documentStore, composition, symbolIndex);
 const fastDiagnosticService = new DawnlightFastDiagnosticService();
-const bundledCatalogDirectory = path.resolve(__dirname, '..', 'catalogs');
-let catalogState = resolveCatalogSnapshot(bundledCatalogDirectory);
 const schemaDiagnostics = new Map<string, readonly Diagnostic[]>();
 const fastDiagnostics = new Map<FastDiagnosticSource, ReadonlyMap<string, readonly Diagnostic[]>>();
 const knownDiagnosticUris = new Set<string>();

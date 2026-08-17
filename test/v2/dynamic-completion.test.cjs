@@ -187,3 +187,118 @@ test('settings completion uses option metadata and translation keys', async t =>
   });
   assert.ok(labels(titleCompletion).has('page.main'));
 });
+
+test('Catalog completion is context-aware and links ID fields to exact versions', async t => {
+  const { workspace, write } = createWorkspace(t);
+  write('shaderpack.json', {
+    sourceFormatVersion: 1,
+    manifestVersion: 3,
+    id: 'example:catalog-completion',
+    name: 'Catalog Completion',
+    version: '0.1.0',
+    fragments: ['manifest/catalog.json']
+  });
+  write('manifest/catalog.json', { options: [], resources: [], programs: [], passes: [] });
+
+  const { harness } = await LspTestHarness.start(serverPath, {
+    clientProtocolVersion: CONTRACT_VERSIONS.languageServerProtocol,
+    catalogSnapshotVersions: [CONTRACT_VERSIONS.catalogSnapshot]
+  }, { workspaceFolders: [workspace] });
+  t.after(async () => {
+    if (!harness.hasExited()) await harness.shutdown();
+  });
+  await waitForSymbols(harness);
+
+  const fragmentPath = path.join(workspace, 'manifest', 'catalog.json');
+  const fragmentUri = pathToFileURL(fragmentPath).toString();
+  const fragment = `{
+  "options": [],
+  "resources": [{
+    "id": "example:target", "kind": "texture2D", "lifetime": "persistent",
+    "size": {"mode": "viewport"}, "format": "rgba8",
+    "content": {"type": "service", "service": "dawnlight:cubemap", "version": 0}
+  }],
+  "programs": [{
+    "id": "example:program", "kind": "graphics", "vertex": "main.vsh", "fragment": "main.psh",
+    "defines": {"MAX_JOINTS": {"capability": "dawnlight:model_shadow/max_joints"}}
+  }],
+  "passes": [{
+    "id": "example:pass",
+    "stage": {"template": "dawnlight:fullscreen", "version": 0, "target": "world", "phase": "post"},
+    "services": [{"id": "dawnlight:cubemap", "version": 0, "mode": "required"}],
+    "programs": ["example:program"],
+    "commands": [{
+      "type": "engineDraw",
+      "provider": {"id": "dawnlight:terrain/opaque", "version": 0},
+      "semantics": [{"symbol": "view", "semantic": "dawnlight:camera/view_matrix", "version": 0}]
+    }]
+  }]
+}\n`;
+  open(harness, fragmentUri, fragment);
+
+  const completeAt = async (needle, adjustment = 0) => harness.sendRequest('textDocument/completion', {
+    textDocument: { uri: fragmentUri },
+    position: positionAt(fragment, fragment.indexOf(needle) + adjustment)
+  });
+
+  const format = await completeAt('"rgba8"', 2);
+  assert.ok(labels(format).has('rgba16f'));
+  assert.match(format.items.find(item => item.label === 'rgba16f').detail, /resource format.*bundled/);
+
+  const capability = await completeAt('"dawnlight:model_shadow/max_joints"', 2);
+  assert.ok(labels(capability).has('dawnlight:model_shadow/max_instances'));
+
+  const template = await completeAt('"dawnlight:fullscreen"', 2);
+  assert.ok(labels(template).has('dawnlight:command_list'));
+  const templateVersionOffset = fragment.indexOf('"version": 0', fragment.indexOf('"stage"'));
+  const templateVersion = await harness.sendRequest('textDocument/completion', {
+    textDocument: { uri: fragmentUri },
+    position: positionAt(fragment, templateVersionOffset + '"version": '.length)
+  });
+  assert.ok(labels(templateVersion).has('1'));
+  assert.match(templateVersion.items.find(item => item.label === '1').detail, /stage template/);
+
+  const serviceIdNeedle = '"id": "dawnlight:cubemap"';
+  const service = await completeAt(serviceIdNeedle, serviceIdNeedle.indexOf('dawnlight'));
+  assert.ok(labels(service).has('dawnlight:point_lights'));
+  const serviceVersionOffset = fragment.indexOf('"version": 0', fragment.indexOf(serviceIdNeedle));
+  const serviceVersion = await harness.sendRequest('textDocument/completion', {
+    textDocument: { uri: fragmentUri },
+    position: positionAt(fragment, serviceVersionOffset + '"version": '.length)
+  });
+  assert.ok(labels(serviceVersion).has('1'));
+  assert.match(serviceVersion.items.find(item => item.label === '1').detail, /Catalog service/);
+
+  const providerNeedle = '"id": "dawnlight:terrain/opaque"';
+  const provider = await completeAt(providerNeedle, providerNeedle.indexOf('dawnlight'));
+  assert.ok(labels(provider).has('dawnlight:terrain/transparent'));
+  const providerVersionOffset = fragment.indexOf('"version": 0', fragment.indexOf(providerNeedle));
+  const providerVersion = await harness.sendRequest('textDocument/completion', {
+    textDocument: { uri: fragmentUri },
+    position: positionAt(fragment, providerVersionOffset + '"version": '.length)
+  });
+  assert.ok(labels(providerVersion).has('1'));
+  assert.match(providerVersion.items.find(item => item.label === '1').detail, /EngineDraw provider/);
+
+  const semanticNeedle = '"semantic": "dawnlight:camera/view_matrix"';
+  const semantic = await completeAt(semanticNeedle, semanticNeedle.indexOf('dawnlight'));
+  assert.ok(labels(semantic).has('dawnlight:camera/projection_matrix'));
+  assert.match(semantic.items.find(item => item.label === 'dawnlight:camera/view_matrix').detail, /matrix4/);
+  const semanticVersionOffset = fragment.indexOf('"version": 0', fragment.indexOf(semanticNeedle));
+  const semanticVersion = await harness.sendRequest('textDocument/completion', {
+    textDocument: { uri: fragmentUri },
+    position: positionAt(fragment, semanticVersionOffset + '"version": '.length)
+  });
+  assert.ok(labels(semanticVersion).has('1'));
+  assert.match(semanticVersion.items.find(item => item.label === '1').detail, /Catalog semantic/);
+
+  const contentServiceNeedle = '"service": "dawnlight:cubemap"';
+  const contentService = await completeAt(contentServiceNeedle, contentServiceNeedle.indexOf('dawnlight'));
+  assert.ok(labels(contentService).has('dawnlight:scene_target'));
+  const contentVersionOffset = fragment.indexOf('"version": 0', fragment.indexOf(contentServiceNeedle));
+  const contentVersion = await harness.sendRequest('textDocument/completion', {
+    textDocument: { uri: fragmentUri },
+    position: positionAt(fragment, contentVersionOffset + '"version": '.length)
+  });
+  assert.ok(labels(contentVersion).has('1'));
+});
