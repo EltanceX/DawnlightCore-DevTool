@@ -6,7 +6,7 @@ import {
   ServerOptions,
   TransportKind
 } from 'vscode-languageclient/node';
-import { CONTRACT_VERSIONS } from '@dawnlight/contracts';
+import { CONTRACT_VERSIONS, LSP_METHODS } from '@dawnlight/contracts';
 
 export interface DawnlightExtensionApi {
   getServerStatus(): {
@@ -59,6 +59,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<Dawnli
   );
   await client.start();
   running = true;
+  context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider(
+    'dawnlight-catalog',
+    {
+      provideTextDocumentContent: uri => client
+        ? client.sendRequest<string | null>(LSP_METHODS.catalogDocument, { uri: uri.toString() })
+          .then(content => content ?? 'Catalog entry is no longer available.\n')
+        : 'Dawnlight Language Server is not running.\n'
+    }
+  ));
 
   return Object.freeze({
     getServerStatus: () => ({

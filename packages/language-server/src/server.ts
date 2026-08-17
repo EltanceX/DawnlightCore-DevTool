@@ -43,6 +43,7 @@ import {
   WorkspacePackDiscovery
 } from './workspaceDiscovery';
 import { resolveCatalogSnapshot } from './catalog';
+import { DawnlightCatalogNavigationService } from './catalogNavigation';
 
 const connection = createConnection(ProposedFeatures.all);
 const documents = new TextDocuments(TextDocument);
@@ -60,6 +61,7 @@ const dynamicCompletion = new DawnlightCompletionService(documentStore, {
   catalog: () => catalogState
 });
 const navigation = new DawnlightNavigationService(documentStore, composition, symbolIndex);
+const catalogNavigation = new DawnlightCatalogNavigationService(documentStore, () => catalogState);
 const fastDiagnosticService = new DawnlightFastDiagnosticService();
 const schemaDiagnostics = new Map<string, readonly Diagnostic[]>();
 const fastDiagnostics = new Map<FastDiagnosticSource, ReadonlyMap<string, readonly Diagnostic[]>>();
@@ -349,6 +351,8 @@ connection.onRequest(LSP_METHODS.catalogSnapshot, () => ({
   fallbackReason: catalogState.fallbackReason,
   negotiation: catalogState.negotiation
 }));
+connection.onRequest(LSP_METHODS.catalogDocument, params =>
+  catalogNavigation.document((params as { uri: string }).uri));
 
 connection.onCompletion(async params => {
   const document = documents.get(params.textDocument.uri);
@@ -362,7 +366,10 @@ connection.onCompletion(async params => {
 
 connection.onDefinition(params => {
   const document = documents.get(params.textDocument.uri);
-  return document ? navigation.definition(document, params.position) : null;
+  return document
+    ? navigation.definition(document, params.position) ??
+      catalogNavigation.definition(document, params.position)
+    : null;
 });
 
 connection.onReferences(params => {
@@ -402,7 +409,11 @@ connection.onHover(async params => {
   const document = documents.get(params.textDocument.uri);
   if (!document) return null;
   const schemaHover = await schemaService.hover(document, params.position);
-  return mergeHover(schemaHover, navigation.hover(document, params.position));
+  const dynamicHover = mergeHover(
+    navigation.hover(document, params.position),
+    catalogNavigation.hover(document, params.position)
+  );
+  return mergeHover(schemaHover, dynamicHover);
 });
 
 documents.onDidOpen(event => {

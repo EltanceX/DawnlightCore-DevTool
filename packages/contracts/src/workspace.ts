@@ -2,8 +2,13 @@ export const LSP_METHODS = Object.freeze({
   workspaceSnapshot: 'dawnlight/workspaceSnapshot',
   compositionSnapshot: 'dawnlight/compositionSnapshot',
   symbolSnapshot: 'dawnlight/symbolSnapshot',
-  catalogSnapshot: 'dawnlight/catalogSnapshot'
+  catalogSnapshot: 'dawnlight/catalogSnapshot',
+  catalogDocument: 'dawnlight/catalogDocument'
 } as const);
+
+export interface DawnlightCatalogDocumentParams {
+  uri: string;
+}
 
 export type DawnlightPackDocumentRole = 'fragment' | 'settings' | 'shaderRoot';
 

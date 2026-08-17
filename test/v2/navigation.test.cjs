@@ -352,3 +352,83 @@ test('Rename rejects every target while a pack contains duplicate canonical IDs'
   }), /duplicate symbol IDs/i);
   await harness.shutdown();
 });
+
+test('Catalog Hover and Definition use precise versions and readonly virtual documents', async t => {
+  const fixture = createWorkspace(t, 'dawnlight-catalog-navigation-');
+  fixture.write('shaderpack.json', {
+    sourceFormatVersion: 1,
+    manifestVersion: 3,
+    id: 'example:catalog-navigation',
+    name: 'Catalog Navigation',
+    version: '0.1.0',
+    fragments: ['manifest/catalog.json']
+  });
+  const fragment = fixture.write('manifest/catalog.json', {
+    resources: [{
+      id: 'example:color', kind: 'texture2D', lifetime: 'persistent',
+      size: { mode: 'viewport' }, format: 'rgba8'
+    }],
+    programs: [{
+      id: 'example:main', kind: 'graphics', vertex: 'main.vsh', fragment: 'main.psh'
+    }],
+    passes: [{
+      id: 'example:pass',
+      stage: { template: 'dawnlight:fullscreen', version: 1, target: 'world', phase: 'post' },
+      services: [{ id: 'dawnlight:point_lights', version: 1, mode: 'optional' }],
+      programs: ['example:main'],
+      commands: [{
+        type: 'engineDraw',
+        provider: { id: 'dawnlight:terrain/opaque', version: 1 },
+        semantics: [{ symbol: 'view', semantic: 'dawnlight:camera/view_matrix', version: 1 }]
+      }]
+    }]
+  });
+
+  const { harness } = await LspTestHarness.start(serverPath, {
+    clientProtocolVersion: CONTRACT_VERSIONS.languageServerProtocol,
+    catalogSnapshotVersions: [CONTRACT_VERSIONS.catalogSnapshot]
+  }, { workspaceFolders: [fixture.workspace] });
+  t.after(async () => {
+    if (!harness.hasExited()) await harness.shutdown();
+  });
+  open(harness, fragment);
+  await waitForIndex(harness, snapshot => snapshot.projects.length === 1);
+
+  const semanticPosition = stringPosition(fragment.text, 'dawnlight:camera/view_matrix');
+  const hover = await harness.sendRequest('textDocument/hover', {
+    textDocument: { uri: fragment.uri }, position: semanticPosition
+  });
+  assert.match(hover.contents.value, /\*\*Semantic\*\* `dawnlight:camera\/view_matrix`/);
+  assert.match(hover.contents.value, /Value kind: `matrix4`/);
+  assert.match(hover.contents.value, /Source: `bundled`/);
+  assert.match(hover.contents.value, /Catalog hash: `[0-9a-f]{64}`/);
+  assert.match(hover.contents.value, /Current camera view matrix/);
+
+  const definition = await harness.sendRequest('textDocument/definition', {
+    textDocument: { uri: fragment.uri }, position: semanticPosition
+  });
+  assert.equal(definition.length, 1);
+  assert.match(definition[0].uri,
+    /^dawnlight-catalog:\/\/dawnlight\/semantic\/dawnlight%3Acamera%2Fview_matrix\/1\.md\?hash=[0-9a-f]{64}$/);
+  const catalogDocument = await harness.sendRequest(LSP_METHODS.catalogDocument, {
+    uri: definition[0].uri
+  });
+  assert.match(catalogDocument, /^#Semantic `dawnlight:camera\/view_matrix`/);
+  assert.match(catalogDocument, /- Version: `1`/);
+  assert.match(catalogDocument, /- Host: `Dawnlight 3.1`/);
+
+  const semanticVersionPosition = positionAt(
+    fragment.text,
+    fragment.text.indexOf('"version": 1', fragment.text.indexOf('dawnlight:camera/view_matrix')) +
+      '"version": '.length
+  );
+  const versionDefinition = await harness.sendRequest('textDocument/definition', {
+    textDocument: { uri: fragment.uri }, position: semanticVersionPosition
+  });
+  assert.equal(versionDefinition[0].uri, definition[0].uri);
+
+  const formatDefinition = await harness.sendRequest('textDocument/definition', {
+    textDocument: { uri: fragment.uri }, position: stringPosition(fragment.text, 'rgba8')
+  });
+  assert.match(formatDefinition[0].uri, /\/resourceFormat\/rgba8\/1\.md\?/);
+});
