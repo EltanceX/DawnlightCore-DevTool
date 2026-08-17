@@ -176,7 +176,7 @@ function analyzerPointerPath(pointer: string | undefined): readonly (string | nu
   if (!pointer.startsWith('/')) return undefined;
   try {
     return pointer.slice(1).split('/').map(segment => {
-      if (/~[^01]/.test(segment)) throw new Error('Invalid JSON Pointer escape.');
+      if (/~(?![01])/.test(segment)) throw new Error('Invalid JSON Pointer escape.');
       const decoded = segment.replace(/~1/g, '/').replace(/~0/g, '~');
       return /^0$|^[1-9][0-9]*$/.test(decoded) ? Number(decoded) : decoded;
     });
@@ -242,7 +242,7 @@ function publishAnalyzerResult(
     const document = documentStore.getByPath(absolutePath);
     if (!document) continue;
     if (!['error', 'warning', 'information', 'hint'].includes(item.severity)) continue;
-    const relatedInformation = (item.related ?? []).flatMap(related => {
+    const relatedInformation = (Array.isArray(item.related) ? item.related : []).flatMap(related => {
       if (typeof related.file !== 'string' || typeof related.message !== 'string') return [];
       const relatedFile = related.file.replace(/\\/g, '/');
       if (path.isAbsolute(relatedFile) || relatedFile.startsWith('../') || relatedFile === '..') return [];
