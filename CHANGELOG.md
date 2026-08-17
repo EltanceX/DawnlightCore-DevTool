@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.0 - V2
+
+- Added workspace pack discovery, JSONC composition, pack-local symbol/reference indexing, and dynamic completion.
+- Added Definition, References, Hover, Rename, fast cross-file diagnostics, Catalog Snapshot v1 negotiation, and bundled Catalog fallback.
+- Added optional C# Analyzer sidecar validation with save-triggered authoritative diagnostics and graceful failure handling.
+- Added strict TypeScript workspace contracts, bundled Language Server/client runtime, benchmark coverage, and clean-profile VSIX acceptance.
+
 ## Unreleased - V2-8
 
 - Added Catalog contract-version negotiation and configurable external Snapshot loading with hash validation and bundled fallback.

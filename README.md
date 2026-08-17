@@ -4,7 +4,7 @@ Declarative VS Code authoring support for Dawnlight shader-pack JSON and JSONC f
 
 ## Current scope
 
-Version `0.1.0` provides local JSON Schema validation, field/value completion, hover descriptions and authoring snippets for:
+Version `0.2.0` provides local JSON Schema validation, field/value completion, hover descriptions and authoring snippets for:
 
 - `shaderpack.json`;
 - `manifest/options/*.json`;
@@ -41,7 +41,7 @@ For a clean-profile command-line install during local acceptance testing:
 ```powershell
 code --user-data-dir .vscode-acceptance-user `
   --extensions-dir .vscode-acceptance-extensions `
-  --install-extension .\dawnlight-shader-pack-tools-0.1.0.vsix --force
+  --install-extension .\dawnlight-shader-pack-tools-0.2.0.vsix --force
 ```
 
 The extension remains offline: the VSIX contains schemas, snippets and bundled

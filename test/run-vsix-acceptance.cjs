@@ -10,7 +10,7 @@ if (process.env.DAWNLIGHT_RUN_VSIX_TEST !== '1') {
 }
 
 const root = path.resolve(__dirname, '..');
-const vsixPath = path.join(root, 'dawnlight-shader-pack-tools-0.1.0.vsix');
+const vsixPath = path.join(root, 'dawnlight-shader-pack-tools-0.2.0.vsix');
 
 function findExecutable() {
   const candidates = [
