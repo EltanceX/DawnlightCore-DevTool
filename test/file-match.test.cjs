@@ -35,3 +35,13 @@ test('external Catalog path is opt-in and defaults to bundled fallback', () => {
   assert.equal(catalogPath.default, '');
   assert.equal(catalogPath.scope, 'resource');
 });
+
+test('Analyzer validation is opt-in by executable path and exposes save/restart commands', () => {
+  const packageJson = readJson('package.json');
+  const properties = packageJson.contributes.configuration.properties;
+  assert.equal(properties['dawnlight.shaderPack.analyzer.path'].default, '');
+  assert.equal(properties['dawnlight.shaderPack.validation.onSave'].default, true);
+  assert.ok(properties['dawnlight.shaderPack.validation.timeoutMs'].minimum >= 250);
+  assert.ok(packageJson.contributes.commands.some(item => item.command === 'dawnlight.validateShaderPack'));
+  assert.ok(packageJson.contributes.commands.some(item => item.command === 'dawnlight.restartAnalyzer'));
+});

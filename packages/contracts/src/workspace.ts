@@ -3,7 +3,10 @@ export const LSP_METHODS = Object.freeze({
   compositionSnapshot: 'dawnlight/compositionSnapshot',
   symbolSnapshot: 'dawnlight/symbolSnapshot',
   catalogSnapshot: 'dawnlight/catalogSnapshot',
-  catalogDocument: 'dawnlight/catalogDocument'
+  catalogDocument: 'dawnlight/catalogDocument',
+  validatePack: 'dawnlight/validatePack',
+  analyzerStatus: 'dawnlight/analyzerStatus',
+  restartAnalyzer: 'dawnlight/restartAnalyzer'
 } as const);
 
 export interface DawnlightCatalogDocumentParams {

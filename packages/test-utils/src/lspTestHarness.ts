@@ -18,7 +18,11 @@ const silentLogger: Logger = {
 
 export interface LanguageServerInitializeResult {
   capabilities: {
-    textDocumentSync?: number;
+    textDocumentSync?: number | {
+      openClose?: boolean;
+      change?: number;
+      save?: boolean | { includeText?: boolean };
+    };
     experimental?: {
       dawnlight?: unknown;
     };

@@ -38,7 +38,7 @@
     "lint": "node test/quality-check.cjs",
     "typecheck": "tsc -b --pretty false",
     "test": "npm run test:unit",
-    "test:unit": "npm run build && node --test test/schema.test.cjs test/completion.test.cjs test/file-match.test.cjs test/snippet.test.cjs test/v2/contracts.test.cjs test/v2/catalog.test.cjs test/v2/language-server.test.cjs test/v2/workspace-discovery.test.cjs test/v2/language-server-workspace.test.cjs test/v2/composition.test.cjs test/v2/symbol-index.test.cjs test/v2/dynamic-completion.test.cjs test/v2/navigation.test.cjs test/v2/diagnostics.test.cjs test/v2/catalog-diagnostics.test.cjs",
+    "test:unit": "npm run build && node --test test/schema.test.cjs test/completion.test.cjs test/file-match.test.cjs test/snippet.test.cjs test/v2/contracts.test.cjs test/v2/catalog.test.cjs test/v2/language-server.test.cjs test/v2/workspace-discovery.test.cjs test/v2/language-server-workspace.test.cjs test/v2/composition.test.cjs test/v2/symbol-index.test.cjs test/v2/dynamic-completion.test.cjs test/v2/navigation.test.cjs test/v2/diagnostics.test.cjs test/v2/catalog-diagnostics.test.cjs test/v2/analyzer.test.cjs",
     "test:vscode": "npm run build && node test/run-vscode.cjs",
     "test:vsix": "node test/run-vsix-acceptance.cjs",
     "test:all": "npm run test:unit && npm run test:vscode && npm run test:vsix"
@@ -68,9 +68,46 @@
           "default": "",
           "scope": "resource",
           "description": "Optional path to an external Catalog Snapshot v1. Invalid or incompatible files fall back to the bundled Dawnlight Catalog."
+        },
+        "dawnlight.shaderPack.validation.onSave": {
+          "type": "boolean",
+          "default": true,
+          "scope": "resource",
+          "description": "Run the optional C# Analyzer after a shader pack document is saved."
+        },
+        "dawnlight.shaderPack.validation.timeoutMs": {
+          "type": "number",
+          "default": 10000,
+          "minimum": 250,
+          "scope": "resource",
+          "description": "Maximum time to wait for one Analyzer request."
+        },
+        "dawnlight.shaderPack.validation.restartLimit": {
+          "type": "number",
+          "default": 3,
+          "minimum": 0,
+          "maximum": 10,
+          "scope": "resource",
+          "description": "Maximum automatic Analyzer restarts after a sidecar failure."
+        },
+        "dawnlight.shaderPack.analyzer.path": {
+          "type": "string",
+          "default": "",
+          "scope": "resource",
+          "description": "Optional executable, .js, or .dll path for the C# Analyzer sidecar."
         }
       }
     },
+    "commands": [
+      {
+        "command": "dawnlight.validateShaderPack",
+        "title": "Dawnlight: Validate Shader Pack"
+      },
+      {
+        "command": "dawnlight.restartAnalyzer",
+        "title": "Dawnlight: Restart Analyzer"
+      }
+    ],
     "jsonValidation": [
       {
         "fileMatch": [

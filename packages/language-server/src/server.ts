@@ -3,9 +3,12 @@ import {
   DidChangeWatchedFilesParams,
   DidChangeWorkspaceFoldersParams,
   Diagnostic,
+  DiagnosticSeverity,
   ErrorCodes,
   InitializeResult,
+  Location,
   ProposedFeatures,
+  Range,
   ResponseError,
   TextDocumentSyncKind,
   TextDocuments
@@ -22,9 +25,15 @@ import {
   LSP_METHODS,
   SERVER_CAPABILITIES
 } from '@dawnlight/contracts';
+import {
+  DawnlightAnalyzerDiagnostic,
+  DawnlightAnalyzerOverlay,
+  DawnlightAnalyzerStatus,
+  DawnlightAnalyzerValidatePackResult
+} from '@dawnlight/contracts';
 import { DawnlightSchemaService, DynamicSchemaRole } from './schemaService';
 import { JsoncDocumentStore } from './jsoncDocuments';
-import { WorkspaceCompositionManager } from './composition';
+import { PackComposition, WorkspaceCompositionManager } from './composition';
 import { WorkspaceSymbolIndexManager } from './symbols';
 import { DawnlightCompletionService, mergeCompletionResults } from './completion';
 import {
@@ -44,6 +53,7 @@ import {
 } from './workspaceDiscovery';
 import { resolveCatalogSnapshot } from './catalog';
 import { DawnlightCatalogNavigationService } from './catalogNavigation';
+import { DawnlightAnalyzerClient } from './analyzerClient';
 
 const connection = createConnection(ProposedFeatures.all);
 const documents = new TextDocuments(TextDocument);
@@ -64,11 +74,24 @@ const navigation = new DawnlightNavigationService(documentStore, composition, sy
 const catalogNavigation = new DawnlightCatalogNavigationService(documentStore, () => catalogState);
 const fastDiagnosticService = new DawnlightFastDiagnosticService();
 const schemaDiagnostics = new Map<string, readonly Diagnostic[]>();
+const analyzerDiagnostics = new Map<string, readonly Diagnostic[]>();
 const fastDiagnostics = new Map<FastDiagnosticSource, ReadonlyMap<string, readonly Diagnostic[]>>();
 const knownDiagnosticUris = new Set<string>();
 let fastDiagnosticTimer: NodeJS.Timeout | undefined;
 let fastDiagnosticRequest = 0;
 let initializedWorkspaceFolders: string[] = [];
+let validationOnSave = true;
+let analyzerRequestVersion = 0;
+const analyzerLatestRequests = new Map<string, number>();
+const analyzerClient = new DawnlightAnalyzerClient({
+  onStderr: text => connection.console.warn(`Dawnlight Analyzer: ${text.trim()}`),
+  onState: status => {
+    connection.console.info(`Dawnlight Analyzer state: ${status.state}.`);
+    if (status.state === 'offline' && status.lastError) {
+      connection.console.warn(`Dawnlight Analyzer offline: ${status.lastError}`);
+    }
+  }
+});
 
 function uriToPath(uri: string): string | undefined {
   try {
@@ -131,7 +154,163 @@ function publishMergedDiagnostics(uri: string): void {
   for (const source of FAST_DIAGNOSTIC_SOURCES) {
     diagnostics.push(...(fastDiagnostics.get(source)?.get(uri) ?? []));
   }
+  diagnostics.push(...(analyzerDiagnostics.get(uri) ?? []));
   connection.sendDiagnostics({ uri, diagnostics });
+}
+
+function isWithinPath(parent: string, candidate: string): boolean {
+  const relative = path.relative(path.resolve(parent), path.resolve(candidate));
+  return relative === '' || (!relative.startsWith(`..${path.sep}`) &&
+    relative !== '..' && !path.isAbsolute(relative));
+}
+
+function analyzerRelativePath(packRoot: string, absolutePath: string): string | undefined {
+  if (!isWithinPath(packRoot, absolutePath)) return undefined;
+  const relative = path.relative(packRoot, absolutePath).replace(/\\/g, '/');
+  if (!relative || relative.startsWith('../') || relative === '..' || path.isAbsolute(relative)) return undefined;
+  return relative;
+}
+
+function analyzerPointerPath(pointer: string | undefined): readonly (string | number)[] | undefined {
+  if (pointer === undefined || pointer === '') return [];
+  if (!pointer.startsWith('/')) return undefined;
+  try {
+    return pointer.slice(1).split('/').map(segment => {
+      if (/~[^01]/.test(segment)) throw new Error('Invalid JSON Pointer escape.');
+      const decoded = segment.replace(/~1/g, '/').replace(/~0/g, '~');
+      return /^0$|^[1-9][0-9]*$/.test(decoded) ? Number(decoded) : decoded;
+    });
+  } catch {
+    return undefined;
+  }
+}
+
+function analyzerDiagnosticRange(
+  document: ReturnType<typeof documentStore.getByPath>,
+  pointer: string | undefined
+): Range {
+  if (!document?.root) return Range.create(0, 0, 0, 0);
+  const segments = analyzerPointerPath(pointer);
+  if (!segments) return Range.create(0, 0, 0, 0);
+  let current = segments;
+  while (true) {
+    const node = document.nodeAtPath(current);
+    if (node) {
+      const range = document.rangeForNode(node);
+      return Range.create(range.start.line, range.start.character, range.end.line, range.end.character);
+    }
+    if (current.length === 0) break;
+    current = current.slice(0, -1);
+  }
+  return Range.create(0, 0, 0, 0);
+}
+
+function analyzerSeverity(value: DawnlightAnalyzerDiagnostic['severity']): DiagnosticSeverity {
+  return value === 'warning'
+    ? DiagnosticSeverity.Warning
+    : value === 'information'
+      ? DiagnosticSeverity.Information
+      : value === 'hint'
+        ? DiagnosticSeverity.Hint
+        : DiagnosticSeverity.Error;
+}
+
+function clearAnalyzerDiagnostics(pack: ShaderPackProject, project?: PackComposition): void {
+  for (const document of project?.documents ?? []) analyzerDiagnostics.delete(document.uri);
+  analyzerDiagnostics.delete(pathToFileURL(pack.manifestPath).toString());
+  for (const uri of analyzerDiagnostics.keys()) {
+    const filePath = uriToPath(uri);
+    if (filePath && isWithinPath(pack.rootPath, filePath)) analyzerDiagnostics.delete(uri);
+  }
+}
+
+function publishAnalyzerResult(
+  pack: ShaderPackProject,
+  project: PackComposition | undefined,
+  result: DawnlightAnalyzerValidatePackResult
+): void {
+  clearAnalyzerDiagnostics(pack, project);
+  const byUri = new Map<string, Diagnostic[]>();
+  for (const item of result.diagnostics) {
+    if (!item || typeof item.code !== 'string' || !/^DLMAN[0-9]{4}$/.test(item.code) ||
+      typeof item.message !== 'string' ||
+      typeof item.file !== 'string') continue;
+    const normalizedFile = item.file.replace(/\\/g, '/');
+    if (path.isAbsolute(normalizedFile) || normalizedFile.startsWith('../') || normalizedFile === '..') continue;
+    const absolutePath = path.resolve(pack.rootPath, ...normalizedFile.split('/'));
+    if (!isWithinPath(pack.rootPath, absolutePath)) continue;
+    const document = documentStore.getByPath(absolutePath);
+    if (!document) continue;
+    if (!['error', 'warning', 'information', 'hint'].includes(item.severity)) continue;
+    const relatedInformation = (item.related ?? []).flatMap(related => {
+      if (typeof related.file !== 'string' || typeof related.message !== 'string') return [];
+      const relatedFile = related.file.replace(/\\/g, '/');
+      if (path.isAbsolute(relatedFile) || relatedFile.startsWith('../') || relatedFile === '..') return [];
+      const relatedPath = path.resolve(pack.rootPath, ...relatedFile.split('/'));
+      if (!isWithinPath(pack.rootPath, relatedPath)) return [];
+      const relatedDocument = documentStore.getByPath(relatedPath);
+      if (!relatedDocument) return [];
+      return [{
+        location: Location.create(
+          relatedDocument.uri,
+          analyzerDiagnosticRange(relatedDocument, related.pointer)
+        ),
+        message: related.message
+      }];
+    });
+    const diagnostic: Diagnostic = {
+      source: 'dawnlight-analyzer',
+      code: item.code,
+      message: item.message,
+      severity: analyzerSeverity(item.severity),
+      range: analyzerDiagnosticRange(document, item.pointer),
+      relatedInformation: relatedInformation.length > 0 ? relatedInformation : undefined
+    };
+    const list = byUri.get(document.uri) ?? [];
+    list.push(diagnostic);
+    byUri.set(document.uri, list);
+  }
+  for (const [uri, diagnostics] of byUri) {
+    analyzerDiagnostics.set(uri, Object.freeze(diagnostics));
+    knownDiagnosticUris.add(uri);
+  }
+  for (const document of project?.documents ?? []) knownDiagnosticUris.add(document.uri);
+  for (const uri of knownDiagnosticUris) publishMergedDiagnostics(uri);
+}
+
+function analyzerOverlays(pack: ShaderPackProject, project: PackComposition | undefined): DawnlightAnalyzerOverlay[] {
+  const overlays: DawnlightAnalyzerOverlay[] = [];
+  for (const document of project?.documents ?? []) {
+    if (document.source !== 'overlay') continue;
+    const relative = analyzerRelativePath(pack.rootPath, document.absolutePath);
+    if (!relative) continue;
+    overlays.push({ path: relative, version: document.version, content: document.text });
+  }
+  return overlays;
+}
+
+async function validatePackWithAnalyzer(pack: ShaderPackProject): Promise<{
+  accepted: boolean;
+  requestVersion: number;
+  status: DawnlightAnalyzerStatus;
+}> {
+  const requestVersion = ++analyzerRequestVersion;
+  analyzerLatestRequests.set(pack.rootPath, requestVersion);
+  const project = composition.snapshot.internalProjects.find(item => item.rootUri === pack.rootPath);
+  clearAnalyzerDiagnostics(pack, project);
+  for (const uri of knownDiagnosticUris) publishMergedDiagnostics(uri);
+  const result = await analyzerClient.validatePack({
+    packRoot: pack.rootPath,
+    catalogHash: catalogState.hash,
+    requestVersion,
+    overlays: analyzerOverlays(pack, project)
+  });
+  if (!result || analyzerLatestRequests.get(pack.rootPath) !== requestVersion ||
+    !discovery.snapshot.packs.some(item => item.rootPath === pack.rootPath)) {
+    return { accepted: false, requestVersion, status: analyzerClient.status };
+  }
+  publishAnalyzerResult(pack, project, result);
+  return { accepted: true, requestVersion, status: analyzerClient.status };
 }
 
 function publishFastDiagnostics(changedPaths: readonly string[] = []): void {
@@ -179,10 +358,22 @@ function rebuildComposition(changedPaths: readonly string[] = []): void {
 }
 
 function notifyWorkspaceChanged(snapshot: ReturnType<WorkspacePackDiscovery['refresh']>): void {
+  const removedAnalyzerUris: string[] = [];
+  for (const uri of analyzerDiagnostics.keys()) {
+    const filePath = uriToPath(uri);
+    if (filePath && !snapshot.packs.some(pack => isWithinPath(pack.rootPath, filePath))) {
+      analyzerDiagnostics.delete(uri);
+      removedAnalyzerUris.push(uri);
+    }
+  }
+  for (const root of analyzerLatestRequests.keys()) {
+    if (!snapshot.packs.some(pack => pack.rootPath === root)) analyzerLatestRequests.delete(root);
+  }
   connection.console.info(
     `Dawnlight workspace generation ${snapshot.generation}: ${snapshot.packs.length} pack(s).`
   );
   for (const document of documents.all()) void validateDocument(document);
+  for (const uri of removedAnalyzerUris) publishMergedDiagnostics(uri);
 }
 
 function dynamicSchemaRole(documentPath: string): DynamicSchemaRole | undefined {
@@ -261,10 +452,21 @@ connection.onInitialize(params => {
     externalPath: options?.catalogPath,
     clientSupportedVersions: options?.catalogSnapshotVersions
   });
+  validationOnSave = options?.validationOnSave ?? true;
+  analyzerClient.configure({
+    analyzerPath: options?.analyzerPath,
+    catalogHash: catalogState.hash,
+    timeoutMs: options?.analyzerTimeoutMs,
+    restartLimit: options?.analyzerRestartLimit
+  });
 
   const result: InitializeResult = {
     capabilities: {
-      textDocumentSync: TextDocumentSyncKind.Incremental,
+      textDocumentSync: {
+        openClose: true,
+        change: TextDocumentSyncKind.Incremental,
+        save: { includeText: false }
+      },
       completionProvider: {
         resolveProvider: false,
         triggerCharacters: ['"', ':']
@@ -354,6 +556,22 @@ connection.onRequest(LSP_METHODS.catalogSnapshot, () => ({
 }));
 connection.onRequest(LSP_METHODS.catalogDocument, params =>
   catalogNavigation.document((params as { uri: string }).uri));
+connection.onRequest(LSP_METHODS.analyzerStatus, () => analyzerClient.status);
+connection.onRequest(LSP_METHODS.restartAnalyzer, async () => {
+  analyzerRequestVersion += 1;
+  analyzerLatestRequests.clear();
+  analyzerDiagnostics.clear();
+  await analyzerClient.restart();
+  for (const uri of knownDiagnosticUris) publishMergedDiagnostics(uri);
+  return analyzerClient.status;
+});
+connection.onRequest(LSP_METHODS.validatePack, async (params: { packRoot?: string } = {}) => {
+  const requestedRoot = params.packRoot ? path.resolve(params.packRoot) : undefined;
+  const pack = discovery.snapshot.packs.find(candidate =>
+    requestedRoot ? path.resolve(candidate.rootPath) === requestedRoot : true);
+  if (!pack) return { accepted: false, status: analyzerClient.status };
+  return validatePackWithAnalyzer(pack);
+});
 
 connection.onCompletion(async params => {
   const document = documents.get(params.textDocument.uri);
@@ -444,6 +662,14 @@ documents.onDidChangeContent(event => {
   void validateDocument(event.document);
 });
 
+documents.onDidSave(event => {
+  if (!validationOnSave) return;
+  const documentPath = uriToPath(event.document.uri);
+  if (!documentPath) return;
+  const association = discovery.getDocumentAssociation(documentPath);
+  if (association && association.role !== 'untracked') void validatePackWithAnalyzer(association.pack);
+});
+
 documents.onDidClose(event => {
   const documentPath = uriToPath(event.document.uri);
   documentStore.close(event.document.uri);
@@ -464,7 +690,7 @@ connection.onShutdown(() => {
   if (fastDiagnosticTimer) clearTimeout(fastDiagnosticTimer);
   fastDiagnosticTimer = undefined;
   fastDiagnosticRequest += 1;
-  return undefined;
+  return analyzerClient.shutdown();
 });
 
 documents.listen(connection);

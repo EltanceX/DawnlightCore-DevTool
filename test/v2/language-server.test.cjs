@@ -14,7 +14,11 @@ test('language server initializes without a workspace and shuts down cleanly', a
     if (!harness.hasExited()) await harness.shutdown();
   });
 
-  assert.equal(result.capabilities.textDocumentSync, 2, 'Expected incremental document sync.');
+  assert.deepEqual(result.capabilities.textDocumentSync, {
+    openClose: true,
+    change: 2,
+    save: { includeText: false }
+  }, 'Expected incremental document sync with save notifications.');
   assert.deepEqual(result.capabilities.experimental?.dawnlight, SERVER_CAPABILITIES);
   assert.deepEqual(result.serverInfo, {
     name: 'Dawnlight Shader Pack Language Server',

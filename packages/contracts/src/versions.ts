@@ -14,10 +14,15 @@ export interface DawnlightInitializeOptions {
   clientProtocolVersion: number;
   catalogSnapshotVersions?: readonly number[];
   catalogPath?: string;
+  analyzerPath?: string;
+  analyzerTimeoutMs?: number;
+  analyzerRestartLimit?: number;
+  validationOnSave?: boolean;
 }
 
 export interface DawnlightServerCapabilities {
   languageServerProtocolVersion: number;
+  analyzerProtocolVersions: readonly number[];
   schemaContractVersion: number;
   catalogSnapshotVersions: readonly number[];
   manifestVersions: readonly number[];
@@ -27,6 +32,7 @@ export interface DawnlightServerCapabilities {
 
 export const SERVER_CAPABILITIES: DawnlightServerCapabilities = Object.freeze({
   languageServerProtocolVersion: CONTRACT_VERSIONS.languageServerProtocol,
+  analyzerProtocolVersions: Object.freeze([CONTRACT_VERSIONS.analyzerProtocol]),
   schemaContractVersion: CONTRACT_VERSIONS.schemaContract,
   catalogSnapshotVersions: Object.freeze([CONTRACT_VERSIONS.catalogSnapshot]),
   manifestVersions: Object.freeze([CONTRACT_VERSIONS.manifest]),

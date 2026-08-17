@@ -2,7 +2,10 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
   CONTRACT_VERSIONS,
+  ANALYZER_METHODS,
+  DEFAULT_ANALYZER_PROTOCOL_VERSIONS,
   DIAGNOSTIC_NAMESPACES,
+  LSP_METHODS,
   SERVER_CAPABILITIES,
   createDiagnosticCode,
   computeCatalogSnapshotHash,
@@ -27,6 +30,7 @@ test('contract versions are explicit and independent from the extension version'
 test('server capabilities advertise every authoring contract supported by V2-0', () => {
   assert.deepEqual(SERVER_CAPABILITIES, {
     languageServerProtocolVersion: CONTRACT_VERSIONS.languageServerProtocol,
+    analyzerProtocolVersions: [CONTRACT_VERSIONS.analyzerProtocol],
     schemaContractVersion: CONTRACT_VERSIONS.schemaContract,
     catalogSnapshotVersions: [CONTRACT_VERSIONS.catalogSnapshot],
     manifestVersions: [CONTRACT_VERSIONS.manifest],
@@ -50,6 +54,21 @@ test('diagnostic namespaces and stable four-digit codes are reserved', () => {
   assert.equal(createDiagnosticCode('json', 0), 'DLJSON0000');
   assert.equal(createDiagnosticCode('manifest', 37), 'DLMAN0037');
   assert.equal(createDiagnosticCode('graph', 9999), 'DLGRAPH9999');
+});
+
+test('Analyzer protocol methods and Language Server control methods are stable', () => {
+  assert.deepEqual(ANALYZER_METHODS, {
+    initialize: 'dawnlight/initialize',
+    getCatalog: 'dawnlight/getCatalog',
+    validatePack: 'dawnlight/validatePack',
+    dumpGraph: 'dawnlight/dumpGraph',
+    explainVariant: 'dawnlight/explainVariant',
+    shutdown: 'dawnlight/shutdown'
+  });
+  assert.deepEqual(DEFAULT_ANALYZER_PROTOCOL_VERSIONS, [CONTRACT_VERSIONS.analyzerProtocol]);
+  assert.equal(LSP_METHODS.validatePack, 'dawnlight/validatePack');
+  assert.equal(LSP_METHODS.analyzerStatus, 'dawnlight/analyzerStatus');
+  assert.equal(LSP_METHODS.restartAnalyzer, 'dawnlight/restartAnalyzer');
 });
 
 test('diagnostic code creation rejects unstable ordinals', () => {

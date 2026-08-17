@@ -31,9 +31,17 @@ export async function activate(context: vscode.ExtensionContext): Promise<Dawnli
     .getConfiguration('dawnlight.shaderPack')
     .get<string>('catalog.path', '')
     .trim();
+  const configuredAnalyzerPath = vscode.workspace
+    .getConfiguration('dawnlight.shaderPack.analyzer')
+    .get<string>('path', '')
+    .trim();
+  const validationConfig = vscode.workspace.getConfiguration('dawnlight.shaderPack.validation');
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
   const catalogPath = configuredPath
     ? path.resolve(workspaceRoot ?? process.cwd(), configuredPath.replace('${workspaceFolder}', workspaceRoot ?? ''))
+    : undefined;
+  const analyzerPath = configuredAnalyzerPath
+    ? path.resolve(workspaceRoot ?? process.cwd(), configuredAnalyzerPath.replace('${workspaceFolder}', workspaceRoot ?? ''))
     : undefined;
 
   const clientOptions: LanguageClientOptions = {
@@ -44,7 +52,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<Dawnli
     initializationOptions: {
       clientProtocolVersion: CONTRACT_VERSIONS.languageServerProtocol,
       catalogSnapshotVersions: [CONTRACT_VERSIONS.catalogSnapshot],
-      catalogPath
+      catalogPath,
+      analyzerPath,
+      analyzerTimeoutMs: validationConfig.get<number>('timeoutMs', 10000),
+      analyzerRestartLimit: validationConfig.get<number>('restartLimit', 3),
+      validationOnSave: validationConfig.get<boolean>('onSave', true)
     },
     synchronize: {
       fileEvents: workspaceWatcher
@@ -68,6 +80,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<Dawnli
         : 'Dawnlight Language Server is not running.\n'
     }
   ));
+  context.subscriptions.push(vscode.commands.registerCommand('dawnlight.validateShaderPack', async () => {
+    if (!client) return;
+    await client.sendRequest(LSP_METHODS.validatePack, {});
+  }));
+  context.subscriptions.push(vscode.commands.registerCommand('dawnlight.restartAnalyzer', async () => {
+    if (!client) return;
+    await client.sendRequest(LSP_METHODS.restartAnalyzer, {});
+  }));
 
   return Object.freeze({
     getServerStatus: () => ({
