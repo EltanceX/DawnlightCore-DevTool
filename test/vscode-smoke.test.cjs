@@ -149,6 +149,33 @@ suite('Dawnlight declarative schema smoke test', () => {
     assert.match(contents, /manifest\/options\/basic\.json/);
   });
 
+  test('Catalog Hover and readonly Definition documents work through VS Code', async () => {
+    const document = await openFixture(
+      'fixtures/valid/dawnlight-v3.1/manifest/passes/atmosphere-shaft.json'
+    );
+    const position = positionForString(document, 'dawnlight:fullscreen');
+    const hovers = await executeUntil(
+      'vscode.executeHoverProvider', [document.uri, position],
+      value => (value || []).some(hover => (hover.contents || []).some(content =>
+        String(typeof content === 'string' ? content : content.value || '').includes('Catalog hash')))
+    );
+    const hoverText = (hovers || []).flatMap(hover => hover.contents || [])
+      .map(content => typeof content === 'string' ? content : content.value || '')
+      .join('\n');
+    assert.match(hoverText, /Stage Template.*dawnlight:fullscreen/s);
+    assert.match(hoverText, /Source.*bundled/s);
+
+    const definitions = await executeUntil(
+      'vscode.executeDefinitionProvider', [document.uri, position],
+      value => Array.isArray(value) && value.some(location => location.uri.scheme === 'dawnlight-catalog')
+    );
+    const location = definitions.find(item => item.uri.scheme === 'dawnlight-catalog');
+    assert.ok(location, 'Expected a dawnlight-catalog Definition URI.');
+    const catalogDocument = await vscode.workspace.openTextDocument(location.uri);
+    assert.match(catalogDocument.getText(), /^#Stage Template `dawnlight:fullscreen`/);
+    assert.match(catalogDocument.getText(), /Catalog hash: `[0-9a-f]{64}`/);
+  });
+
   test('root completion exposes Manifest fields', async () => {
     const uri = fixtureUri('fixtures/completion/shaderpack.json');
     const document = await vscode.workspace.openTextDocument(uri);

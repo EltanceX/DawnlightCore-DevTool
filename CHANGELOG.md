@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased - V2-8
+
+- Added Catalog contract-version negotiation and configurable external Snapshot loading with hash validation and bundled fallback.
+- Added context-aware ID/version completion for Stage Templates, Services, Semantics, EngineDraw Providers, Capabilities, and resource formats.
+- Moved resource-format values out of the structural Schema enum and into the active Catalog.
+- Added Catalog metadata Hover with exact version, value kind, dependencies, source, host, and canonical hash.
+- Added Definition into readonly `dawnlight-catalog:` virtual documents served by the Language Server.
+
+## Unreleased - V2-7
+
+- Added Catalog Snapshot v1 TypeScript and JSON Schema contracts with deterministic canonical SHA-256 hashing.
+- Added a bundled Dawnlight 3.1 fallback Snapshot and `dawnlight/catalogSnapshot` status request.
+- Added runtime validation for host, supported formats, entry collections, versions, and duplicate IDs.
+
 ## Unreleased - V2-6
 
 - Added fast cross-file JSONC, path, symbol, and graph diagnostics with a 175 ms generation-safe refresh.

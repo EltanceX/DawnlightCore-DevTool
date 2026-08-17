@@ -17,13 +17,15 @@ The packaged extension requires VS Code `1.90` or newer.
 
 The V2-6 development milestone adds fast cross-file diagnostics on top of the pack-local Symbol/Reference Index. The bundled Language Server now publishes JSONC, path, symbol, graph, and Schema diagnostics with independent sources while retaining V2-5 Definition, References, semantic Hover, and safe Rename.
 
-V2-7 adds the versioned Catalog Snapshot v1 contract and bundles a validated
-Dawnlight 3.1 host/format fallback at `catalogs/dawnlight-3.1.catalog.json`.
-The Language Server exposes its source and canonical hash through
-`dawnlight/catalogSnapshot`; Catalog ID completion and runtime Analyzer data are
-later milestones.
+V2-8 adds negotiated bundled/external Catalog selection and Catalog-aware
+completion for Stage Templates, Services, Semantics, EngineDraw Providers,
+Capabilities and resource formats. Catalog references provide metadata Hover
+and Definition into readonly `dawnlight-catalog:` documents. Configure an
+external Snapshot with `dawnlight.shaderPack.catalog.path`; invalid or
+incompatible files fall back to the bundled Dawnlight 3.1 Catalog after a
+Language Server restart.
 
-Path Rename updates confirmed JSON references only; it never moves shader, asset, fragment, or Settings files. Catalog IDs, shader-code semantics, and production runtime diagnostics remain planned work for the later Catalog/Analyzer milestones.
+Path Rename updates confirmed JSON references only; it never moves shader, asset, fragment, or Settings files. Catalog unknown-ID/version diagnostics, shader-code semantics, and production runtime diagnostics remain planned work for the later Catalog/Analyzer milestones.
 
 ## Local development
 

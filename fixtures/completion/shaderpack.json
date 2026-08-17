@@ -1,6 +1,14 @@
 {
+  "sourceFormatVersion": 1,
   "manifestVersion": 3,
   "id": "example:completion",
   "name": "Completion Fixture",
-  "version": "0.1.0"
+  "version": "0.1.0",
+  "settings": "manifest/ui/settings.json",
+  "fragments": [
+    "manifest/options/main.json",
+    "manifest/resources/main.json",
+    "manifest/programs/main.json",
+    "manifest/passes/main.json"
+  ]
 }
