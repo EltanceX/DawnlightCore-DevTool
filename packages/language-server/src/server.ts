@@ -146,6 +146,7 @@ function publishFastDiagnostics(changedPaths: readonly string[] = []): void {
       discoverySnapshot,
       compositionSnapshot,
       symbolSnapshotValue,
+      catalogState,
       changedPaths
     );
     if (request !== fastDiagnosticRequest ||

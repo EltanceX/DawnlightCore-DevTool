@@ -20,17 +20,20 @@ import {
   WorkspaceDiscoverySnapshot
 } from './workspaceDiscovery';
 import {
+  CatalogSnapshotState,
   DawnlightPackSymbolIndexSnapshot,
   DawnlightReferenceSnapshot,
   DawnlightSymbolSnapshot,
   DawnlightWorkspaceSymbolIndexSnapshot
 } from '@dawnlight/contracts';
+import { computeCatalogDiagnostics } from './catalogDiagnostics';
 
 export const FAST_DIAGNOSTIC_SOURCES = Object.freeze([
   'dawnlight-json',
   'dawnlight-path',
   'dawnlight-symbol',
-  'dawnlight-graph'
+  'dawnlight-graph',
+  'dawnlight-catalog'
 ] as const);
 
 export type FastDiagnosticSource = typeof FAST_DIAGNOSTIC_SOURCES[number];
@@ -558,13 +561,28 @@ function freezeResult(maps: DiagnosticMaps, compositionGeneration: number, symbo
 
 export class DawnlightFastDiagnosticService {
   private readonly projectCache = new Map<string, DiagnosticMaps>();
+  private catalogSignature = '';
 
   compute(
     discovery: WorkspaceDiscoverySnapshot,
     composition: WorkspaceCompositionSnapshot,
     symbols: DawnlightWorkspaceSymbolIndexSnapshot,
+    catalog: CatalogSnapshotState,
     changedPaths: readonly string[] = []
   ): FastDiagnosticResult {
+    const catalogSignature = [
+      catalog.hash,
+      catalog.hashValid,
+      catalog.negotiation.compatible,
+      catalog.negotiation.selectedVersion,
+      ...catalog.negotiation.clientSupportedVersions,
+      '|',
+      ...catalog.negotiation.serverSupportedVersions
+    ].join(':');
+    if (catalogSignature !== this.catalogSignature) {
+      this.catalogSignature = catalogSignature;
+      this.projectCache.clear();
+    }
     const maps: DiagnosticMaps = new Map();
     const internalByRoot = new Map(composition.internalProjects.map(project => [project.rootUri, project]));
     const symbolByRoot = new Map(symbols.projects.map(project => [project.rootUri, project]));
@@ -588,6 +606,10 @@ export class DawnlightFastDiagnosticService {
         addPassGraphDiagnostics(projectMaps, project, project);
         addResourceCompatibilityDiagnostics(projectMaps, project, index);
         addSettingsDiagnostics(projectMaps, project, index);
+        projectMaps.set('dawnlight-catalog', new Map(
+          [...computeCatalogDiagnostics(pack, project, catalog)]
+            .map(([uri, diagnostics]) => [uri, [...diagnostics]] as const)
+        ));
         this.projectCache.set(packRoot, projectMaps);
       }
       for (const [source, sourceMap] of projectMaps) {
