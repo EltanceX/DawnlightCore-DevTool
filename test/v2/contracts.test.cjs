@@ -4,7 +4,10 @@ const {
   CONTRACT_VERSIONS,
   DIAGNOSTIC_NAMESPACES,
   SERVER_CAPABILITIES,
-  createDiagnosticCode
+  createDiagnosticCode,
+  computeCatalogSnapshotHash,
+  parseCatalogSnapshot,
+  verifyCatalogSnapshotHash
 } = require('../../packages/contracts/dist');
 
 test('contract versions are explicit and independent from the extension version', () => {
@@ -25,6 +28,7 @@ test('server capabilities advertise every authoring contract supported by V2-0',
   assert.deepEqual(SERVER_CAPABILITIES, {
     languageServerProtocolVersion: CONTRACT_VERSIONS.languageServerProtocol,
     schemaContractVersion: CONTRACT_VERSIONS.schemaContract,
+    catalogSnapshotVersions: [CONTRACT_VERSIONS.catalogSnapshot],
     manifestVersions: [CONTRACT_VERSIONS.manifest],
     sourceCompositionVersions: [CONTRACT_VERSIONS.sourceComposition],
     settingsUiVersions: [CONTRACT_VERSIONS.settingsUi]
@@ -52,4 +56,51 @@ test('diagnostic code creation rejects unstable ordinals', () => {
   for (const value of [-1, 1.5, 10000, Number.NaN]) {
     assert.throws(() => createDiagnosticCode('schema', value), RangeError);
   }
+});
+
+test('Catalog Snapshot v1 has a stable hash independent of object key order', () => {
+  const payload = {
+    contractVersion: 1,
+    host: { version: '3.1', id: 'dawnlight', displayName: 'Dawnlight' },
+    supportedFormats: { settingsUi: [1], manifest: [3], sourceComposition: [1] },
+    stageTemplates: [],
+    services: [],
+    semantics: [],
+    engineDrawProviders: [],
+    capabilities: [],
+    resourceFormats: [],
+    limits: {}
+  };
+  const snapshot = { ...payload, hash: computeCatalogSnapshotHash(payload) };
+  assert.equal(verifyCatalogSnapshotHash(parseCatalogSnapshot(snapshot)), true);
+  assert.equal(computeCatalogSnapshotHash({ ...payload, host: { ...payload.host } }), snapshot.hash);
+  assert.equal(computeCatalogSnapshotHash({
+    ...payload,
+    semantics: [
+      { id: 'dawnlight:z', version: 1, valueKind: 'number' },
+      { id: 'dawnlight:a', version: 2, valueKind: 'number' }
+    ]
+  }), computeCatalogSnapshotHash({
+    ...payload,
+    semantics: [
+      { id: 'dawnlight:a', version: 2, valueKind: 'number' },
+      { id: 'dawnlight:z', version: 1, valueKind: 'number' }
+    ]
+  }));
+});
+
+test('Catalog Snapshot v1 rejects duplicate ID/version entries', () => {
+  assert.throws(() => parseCatalogSnapshot({
+    contractVersion: 1,
+    host: { id: 'dawnlight', displayName: 'Dawnlight', version: '3.1' },
+    supportedFormats: { manifest: [3], sourceComposition: [1], settingsUi: [1] },
+    stageTemplates: [],
+    services: [{ id: 'dawnlight:test', version: 1 }, { id: 'dawnlight:test', version: 1 }],
+    semantics: [],
+    engineDrawProviders: [],
+    capabilities: [],
+    resourceFormats: [],
+    limits: {},
+    hash: 'deadbeef'
+  }), /duplicate/);
 });

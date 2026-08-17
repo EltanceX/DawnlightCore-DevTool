@@ -22,6 +22,7 @@ import {
   LSP_METHODS,
   SERVER_CAPABILITIES
 } from '@dawnlight/contracts';
+import { CatalogSnapshotInfo } from '@dawnlight/contracts';
 import { DawnlightSchemaService, DynamicSchemaRole } from './schemaService';
 import { JsoncDocumentStore } from './jsoncDocuments';
 import { WorkspaceCompositionManager } from './composition';
@@ -42,6 +43,7 @@ import {
   ShaderPackProject,
   WorkspacePackDiscovery
 } from './workspaceDiscovery';
+import { loadBundledCatalogSnapshot } from './catalog';
 
 const connection = createConnection(ProposedFeatures.all);
 const documents = new TextDocuments(TextDocument);
@@ -57,6 +59,9 @@ const dynamicCompletion = new DawnlightCompletionService(documentStore, {
 });
 const navigation = new DawnlightNavigationService(documentStore, composition, symbolIndex);
 const fastDiagnosticService = new DawnlightFastDiagnosticService();
+const bundledCatalog: CatalogSnapshotInfo = loadBundledCatalogSnapshot(
+  path.resolve(__dirname, '..', 'catalogs')
+);
 const schemaDiagnostics = new Map<string, readonly Diagnostic[]>();
 const fastDiagnostics = new Map<FastDiagnosticSource, ReadonlyMap<string, readonly Diagnostic[]>>();
 const knownDiagnosticUris = new Set<string>();
@@ -321,6 +326,13 @@ connection.onDidChangeWatchedFiles((params: DidChangeWatchedFilesParams) => {
 connection.onRequest(LSP_METHODS.workspaceSnapshot, () => workspaceSnapshot());
 connection.onRequest(LSP_METHODS.compositionSnapshot, () => compositionSnapshot());
 connection.onRequest(LSP_METHODS.symbolSnapshot, () => symbolSnapshot());
+connection.onRequest(LSP_METHODS.catalogSnapshot, () => ({
+  source: bundledCatalog.source,
+  path: bundledCatalog.path,
+  hash: bundledCatalog.hash,
+  hashValid: bundledCatalog.hashValid,
+  snapshot: bundledCatalog.snapshot
+}));
 
 connection.onCompletion(async params => {
   const document = documents.get(params.textDocument.uri);

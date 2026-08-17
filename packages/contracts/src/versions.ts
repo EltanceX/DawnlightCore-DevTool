@@ -17,6 +17,7 @@ export interface DawnlightInitializeOptions {
 export interface DawnlightServerCapabilities {
   languageServerProtocolVersion: number;
   schemaContractVersion: number;
+  catalogSnapshotVersions: readonly number[];
   manifestVersions: readonly number[];
   sourceCompositionVersions: readonly number[];
   settingsUiVersions: readonly number[];
@@ -25,6 +26,7 @@ export interface DawnlightServerCapabilities {
 export const SERVER_CAPABILITIES: DawnlightServerCapabilities = Object.freeze({
   languageServerProtocolVersion: CONTRACT_VERSIONS.languageServerProtocol,
   schemaContractVersion: CONTRACT_VERSIONS.schemaContract,
+  catalogSnapshotVersions: Object.freeze([CONTRACT_VERSIONS.catalogSnapshot]),
   manifestVersions: Object.freeze([CONTRACT_VERSIONS.manifest]),
   sourceCompositionVersions: Object.freeze([CONTRACT_VERSIONS.sourceComposition]),
   settingsUiVersions: Object.freeze([CONTRACT_VERSIONS.settingsUi])

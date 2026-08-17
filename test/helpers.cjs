@@ -23,7 +23,8 @@ function createAjv() {
     'shaderpack-common.schema.json',
     'shaderpack-manifest-v3-fragment.schema.json',
     'shaderpack-manifest-v3-root.schema.json',
-    'shaderpack-settings-ui-v1.schema.json'
+    'shaderpack-settings-ui-v1.schema.json',
+    'shaderpack-catalog-snapshot-v1.schema.json'
   ]) {
     ajv.addSchema(readJson(`schemas/${name}`));
   }

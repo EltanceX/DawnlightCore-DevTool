@@ -1,0 +1,22 @@
+{
+  "contractVersion": 1,
+  "host": {
+    "id": "dawnlight",
+    "displayName": "Dawnlight",
+    "version": "3.1",
+    "build": "bundled-authoring-fallback"
+  },
+  "supportedFormats": {
+    "manifest": [3],
+    "sourceComposition": [1],
+    "settingsUi": [1]
+  },
+  "stageTemplates": [],
+  "services": [],
+  "semantics": [],
+  "engineDrawProviders": [],
+  "capabilities": [],
+  "resourceFormats": [],
+  "limits": {},
+  "hash": "471a40b37715730d07d1625c76e760a8475eb4882d4c854bed4b524ac7642e5c"
+}

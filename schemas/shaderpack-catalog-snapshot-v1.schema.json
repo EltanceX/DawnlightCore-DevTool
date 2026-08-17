@@ -1,0 +1,120 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "shaderpack-catalog-snapshot-v1.schema.json",
+  "title": "Dawnlight Catalog Snapshot v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "host",
+    "supportedFormats",
+    "stageTemplates",
+    "services",
+    "semantics",
+    "engineDrawProviders",
+    "capabilities",
+    "resourceFormats",
+    "limits",
+    "hash"
+  ],
+  "properties": {
+    "contractVersion": { "const": 1 },
+    "host": { "$ref": "#/$defs/host" },
+    "supportedFormats": { "$ref": "#/$defs/supportedFormats" },
+    "stageTemplates": { "type": "array", "items": { "$ref": "#/$defs/stageTemplate" } },
+    "services": { "type": "array", "items": { "$ref": "#/$defs/service" } },
+    "semantics": { "type": "array", "items": { "$ref": "#/$defs/semantic" } },
+    "engineDrawProviders": { "type": "array", "items": { "$ref": "#/$defs/provider" } },
+    "capabilities": { "type": "array", "items": { "$ref": "#/$defs/capability" } },
+    "resourceFormats": { "type": "array", "items": { "$ref": "#/$defs/resourceFormat" } },
+    "limits": { "type": "object" },
+    "hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "valueKind": {
+      "type": "string",
+      "minLength": 1
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "version": { "$ref": "#/$defs/version" },
+        "description": { "type": "string" },
+        "since": { "type": "string" },
+        "deprecated": { "type": "boolean" },
+        "valueKind": { "$ref": "#/$defs/valueKind" },
+        "requiredServices": { "$ref": "#/$defs/stringArray" },
+        "requiredCapabilities": { "$ref": "#/$defs/stringArray" },
+        "targets": { "$ref": "#/$defs/stringArray" },
+        "phase": { "type": "string" },
+        "command": { "type": "string" },
+        "components": { "type": "number" },
+        "bytesPerPixel": { "type": "number" },
+        "depth": { "type": "boolean" },
+        "filterable": { "type": "boolean" },
+        "renderable": { "type": "boolean" }
+      }
+    },
+    "host": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "displayName", "version"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "displayName": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "build": { "type": "string" }
+      }
+    },
+    "supportedFormats": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["manifest", "sourceComposition", "settingsUi"],
+      "properties": {
+        "manifest": { "$ref": "#/$defs/versionArray" },
+        "sourceComposition": { "$ref": "#/$defs/versionArray" },
+        "settingsUi": { "$ref": "#/$defs/versionArray" }
+      }
+    },
+    "versionArray": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/version" }
+    },
+    "stringArray": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "stageTemplate": {
+      "allOf": [{ "$ref": "#/$defs/entry" }]
+    },
+    "service": {
+      "allOf": [{ "$ref": "#/$defs/entry" }]
+    },
+    "semantic": {
+      "allOf": [
+        { "$ref": "#/$defs/entry" },
+        { "required": ["valueKind"] }
+      ]
+    },
+    "provider": {
+      "allOf": [{ "$ref": "#/$defs/entry" }]
+    },
+    "capability": {
+      "allOf": [{ "$ref": "#/$defs/entry" }]
+    },
+    "resourceFormat": {
+      "allOf": [{ "$ref": "#/$defs/entry" }]
+    }
+  }
+}

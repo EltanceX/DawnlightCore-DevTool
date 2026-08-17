@@ -8,6 +8,7 @@ const {
   createAjv,
   validateWithSchema
 } = require('./helpers.cjs');
+const { loadBundledCatalogSnapshot } = require('../packages/language-server/dist/catalog');
 
 test('valid MVP fixtures pass their assigned schemas', () => {
   const ajv = createAjv();
@@ -55,6 +56,7 @@ test('schemas and snippets are valid JSON documents', () => {
     'schemas/shaderpack-manifest-v3-fragment.schema.json',
     'schemas/shaderpack-manifest-v3-root.schema.json',
     'schemas/shaderpack-settings-ui-v1.schema.json',
+    'schemas/shaderpack-catalog-snapshot-v1.schema.json',
     'package.json'
   ];
   for (const relativePath of jsonFiles) {
@@ -67,6 +69,14 @@ test('schemas and snippets are valid JSON documents', () => {
     assert.equal(typeof snippet.prefix, 'string', `${name} has no prefix`);
     assert.ok(Array.isArray(snippet.body), `${name} body must be an array`);
   }
+});
+
+test('bundled Catalog Snapshot passes its JSON Schema', () => {
+  const ajv = createAjv();
+  const catalog = loadBundledCatalogSnapshot(path.join(root, 'catalogs')).snapshot;
+  const validate = ajv.getSchema('shaderpack-catalog-snapshot-v1.schema.json');
+  assert.ok(validate, 'Catalog schema was not registered.');
+  assert.equal(validate(catalog), true, JSON.stringify(validate.errors));
 });
 
 test('fixture inventory contains the documented MVP categories', () => {
