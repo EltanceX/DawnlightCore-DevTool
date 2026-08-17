@@ -15,9 +15,9 @@ Version `0.1.0` provides local JSON Schema validation, field/value completion, h
 
 The packaged extension requires VS Code `1.90` or newer.
 
-The V2-3 development milestone adds a pack-local Symbol/Reference Index. The bundled Language Server now indexes manifest definitions, Settings UI symbols, ID references, shader/asset paths, duplicate IDs, and per-pack immutable snapshots while retaining unsaved JSONC overlays.
+The V2-4 development milestone adds dynamic completion on top of the pack-local Symbol/Reference Index. The bundled Language Server now merges pack-local ID, JSON path, shader path, Settings widget and translation candidates with the existing Schema completion while retaining unsaved JSONC overlays.
 
-Dynamic completion, Catalog IDs, cross-file navigation, shader code and production runtime diagnostics remain planned work beginning with V2-4.
+Catalog IDs, cross-file navigation, shader code and production runtime diagnostics remain planned work beginning with V2-5.
 
 ## Local development
 

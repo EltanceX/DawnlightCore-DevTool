@@ -22,6 +22,7 @@ import { DawnlightSchemaService, DynamicSchemaRole } from './schemaService';
 import { JsoncDocumentStore } from './jsoncDocuments';
 import { WorkspaceCompositionManager } from './composition';
 import { WorkspaceSymbolIndexManager } from './symbols';
+import { DawnlightCompletionService, mergeCompletionResults } from './completion';
 import {
   PackPathReference,
   ShaderPackProject,
@@ -35,6 +36,11 @@ const schemaService = new DawnlightSchemaService(path.resolve(__dirname, '..', '
 const documentStore = new JsoncDocumentStore();
 const composition = new WorkspaceCompositionManager(documentStore);
 const symbolIndex = new WorkspaceSymbolIndexManager();
+const dynamicCompletion = new DawnlightCompletionService(documentStore, {
+  discovery,
+  composition,
+  symbols: symbolIndex
+});
 let initializedWorkspaceFolders: string[] = [];
 
 function uriToPath(uri: string): string | undefined {
@@ -153,6 +159,7 @@ async function validateDocument(document: TextDocument): Promise<void> {
 }
 
 function refreshWorkspace(changedPaths: readonly string[] = []): void {
+  dynamicCompletion.invalidate(changedPaths);
   const previous = discovery.snapshot;
   const snapshot = changedPaths.length > 0
     ? discovery.handleFileEvents(changedPaths)
@@ -229,6 +236,7 @@ connection.onNotification(
       .filter((folder): folder is string => folder !== undefined);
     initializedWorkspaceFolders = [...remaining, ...added];
     discovery.setWorkspaceFolders(initializedWorkspaceFolders);
+    dynamicCompletion.invalidate();
     for (const document of documents.all()) void validateDocument(document);
     rebuildComposition();
   }
@@ -246,9 +254,14 @@ connection.onRequest(LSP_METHODS.workspaceSnapshot, () => workspaceSnapshot());
 connection.onRequest(LSP_METHODS.compositionSnapshot, () => compositionSnapshot());
 connection.onRequest(LSP_METHODS.symbolSnapshot, () => symbolSnapshot());
 
-connection.onCompletion(params => {
+connection.onCompletion(async params => {
   const document = documents.get(params.textDocument.uri);
-  return document ? schemaService.complete(document, params.position) : null;
+  if (!document) return null;
+  const schemaResult = await schemaService.complete(document, params.position);
+  return mergeCompletionResults(
+    schemaResult,
+    dynamicCompletion.complete(document, params.position)
+  );
 });
 
 connection.onHover(params => {
@@ -259,6 +272,7 @@ connection.onHover(params => {
 documents.onDidOpen(event => {
   const documentPath = uriToPath(event.document.uri);
   documentStore.open(event.document.uri, event.document.getText(), event.document.version);
+  dynamicCompletion.invalidate(documentPath ? [documentPath] : []);
   if (documentPath) {
     discovery.locatePackForDocument(documentPath);
     const previous = discovery.snapshot;
@@ -272,6 +286,7 @@ documents.onDidOpen(event => {
 documents.onDidChangeContent(event => {
   documentStore.update(event.document.uri, event.document.getText(), event.document.version);
   const documentPath = uriToPath(event.document.uri);
+  dynamicCompletion.invalidate(documentPath ? [documentPath] : []);
   if (documentPath) {
     const previous = discovery.snapshot;
     const next = discovery.setDocumentOverlay(documentPath, event.document.getText());
@@ -284,6 +299,7 @@ documents.onDidChangeContent(event => {
 documents.onDidClose(event => {
   const documentPath = uriToPath(event.document.uri);
   documentStore.close(event.document.uri);
+  dynamicCompletion.invalidate(documentPath ? [documentPath] : []);
   if (documentPath) {
     const previous = discovery.snapshot;
     const next = discovery.clearDocumentOverlay(documentPath);

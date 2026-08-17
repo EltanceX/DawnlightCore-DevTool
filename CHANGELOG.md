@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased - V2-4
+
+- Added dynamic JSON/JSONC completion merged with existing Schema completion.
+- Added pack-local fragment/settings/shader path completion and option/resource/program/pass ID candidates.
+- Added graphics/compute, binding/resource kind, history lifetime, Settings widget and translation key filtering.
+- Added completion item details, sort order, JSON-safe insert text and precise replacement ranges.
+
 ## Unreleased - V2-3
 
 - Added pack-local Symbol/Reference Index snapshots for options, resources, programs, passes, Settings UI, shader paths, and asset paths.
