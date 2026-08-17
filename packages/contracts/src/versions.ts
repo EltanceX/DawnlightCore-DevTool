@@ -12,6 +12,8 @@ export type ContractVersionName = keyof typeof CONTRACT_VERSIONS;
 
 export interface DawnlightInitializeOptions {
   clientProtocolVersion: number;
+  catalogSnapshotVersions?: readonly number[];
+  catalogPath?: string;
 }
 
 export interface DawnlightServerCapabilities {

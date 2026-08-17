@@ -99,6 +99,19 @@ export interface CatalogSnapshotInfo {
   snapshot: CatalogSnapshot;
 }
 
+export interface CatalogVersionNegotiation {
+  clientSupportedVersions: readonly number[];
+  serverSupportedVersions: readonly number[];
+  selectedVersion?: number;
+  compatible: boolean;
+}
+
+export interface CatalogSnapshotState extends CatalogSnapshotInfo {
+  requestedPath?: string;
+  fallbackReason?: string;
+  negotiation: CatalogVersionNegotiation;
+}
+
 const ENTRY_COLLECTIONS = [
   'stageTemplates',
   'services',

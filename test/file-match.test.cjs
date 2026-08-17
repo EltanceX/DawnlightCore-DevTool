@@ -27,3 +27,11 @@ test('JSON and JSONC use the same snippet catalog', () => {
     { language: 'jsonc', path: './snippets/shaderpack.code-snippets' }
   ]);
 });
+
+test('external Catalog path is opt-in and defaults to bundled fallback', () => {
+  const configuration = readJson('package.json').contributes.configuration;
+  const catalogPath = configuration.properties['dawnlight.shaderPack.catalog.path'];
+  assert.equal(catalogPath.type, 'string');
+  assert.equal(catalogPath.default, '');
+  assert.equal(catalogPath.scope, 'resource');
+});

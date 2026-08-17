@@ -22,7 +22,6 @@ import {
   LSP_METHODS,
   SERVER_CAPABILITIES
 } from '@dawnlight/contracts';
-import { CatalogSnapshotInfo } from '@dawnlight/contracts';
 import { DawnlightSchemaService, DynamicSchemaRole } from './schemaService';
 import { JsoncDocumentStore } from './jsoncDocuments';
 import { WorkspaceCompositionManager } from './composition';
@@ -43,7 +42,7 @@ import {
   ShaderPackProject,
   WorkspacePackDiscovery
 } from './workspaceDiscovery';
-import { loadBundledCatalogSnapshot } from './catalog';
+import { resolveCatalogSnapshot } from './catalog';
 
 const connection = createConnection(ProposedFeatures.all);
 const documents = new TextDocuments(TextDocument);
@@ -59,9 +58,8 @@ const dynamicCompletion = new DawnlightCompletionService(documentStore, {
 });
 const navigation = new DawnlightNavigationService(documentStore, composition, symbolIndex);
 const fastDiagnosticService = new DawnlightFastDiagnosticService();
-const bundledCatalog: CatalogSnapshotInfo = loadBundledCatalogSnapshot(
-  path.resolve(__dirname, '..', 'catalogs')
-);
+const bundledCatalogDirectory = path.resolve(__dirname, '..', 'catalogs');
+let catalogState = resolveCatalogSnapshot(bundledCatalogDirectory);
 const schemaDiagnostics = new Map<string, readonly Diagnostic[]>();
 const fastDiagnostics = new Map<FastDiagnosticSource, ReadonlyMap<string, readonly Diagnostic[]>>();
 const knownDiagnosticUris = new Set<string>();
@@ -255,6 +253,10 @@ connection.onInitialize(params => {
       `${CONTRACT_VERSIONS.languageServerProtocol}.`
     );
   }
+  catalogState = resolveCatalogSnapshot(bundledCatalogDirectory, {
+    externalPath: options?.catalogPath,
+    clientSupportedVersions: options?.catalogSnapshotVersions
+  });
 
   const result: InitializeResult = {
     capabilities: {
@@ -289,6 +291,16 @@ connection.onInitialized(() => {
   discovery.setWorkspaceFolders(initializedWorkspaceFolders);
   rebuildComposition();
   connection.console.info('Dawnlight language server initialized.');
+  connection.console.info(
+    `Dawnlight Catalog ${catalogState.source}: ${catalogState.path}; hash ${catalogState.hash}.`
+  );
+  if (catalogState.fallbackReason) connection.console.warn(catalogState.fallbackReason);
+  if (!catalogState.negotiation.compatible) {
+    connection.console.warn(
+      `Catalog contract mismatch: client [${catalogState.negotiation.clientSupportedVersions.join(', ')}], ` +
+      `server [${catalogState.negotiation.serverSupportedVersions.join(', ')}].`
+    );
+  }
   connection.console.info(
     `Dawnlight workspace generation ${discovery.snapshot.generation}: ` +
     `${discovery.snapshot.packs.length} pack(s).`
@@ -327,11 +339,14 @@ connection.onRequest(LSP_METHODS.workspaceSnapshot, () => workspaceSnapshot());
 connection.onRequest(LSP_METHODS.compositionSnapshot, () => compositionSnapshot());
 connection.onRequest(LSP_METHODS.symbolSnapshot, () => symbolSnapshot());
 connection.onRequest(LSP_METHODS.catalogSnapshot, () => ({
-  source: bundledCatalog.source,
-  path: bundledCatalog.path,
-  hash: bundledCatalog.hash,
-  hashValid: bundledCatalog.hashValid,
-  snapshot: bundledCatalog.snapshot
+  source: catalogState.source,
+  path: catalogState.path,
+  hash: catalogState.hash,
+  hashValid: catalogState.hashValid,
+  snapshot: catalogState.snapshot,
+  requestedPath: catalogState.requestedPath,
+  fallbackReason: catalogState.fallbackReason,
+  negotiation: catalogState.negotiation
 }));
 
 connection.onCompletion(async params => {

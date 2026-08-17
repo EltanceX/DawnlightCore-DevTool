@@ -60,6 +60,17 @@
     "vscode-languageserver-textdocument": "^1.0.12"
   },
   "contributes": {
+    "configuration": {
+      "title": "Dawnlight Shader Pack",
+      "properties": {
+        "dawnlight.shaderPack.catalog.path": {
+          "type": "string",
+          "default": "",
+          "scope": "resource",
+          "description": "Optional path to an external Catalog Snapshot v1. Invalid or incompatible files fall back to the bundled Dawnlight Catalog."
+        }
+      }
+    },
     "jsonValidation": [
       {
         "fileMatch": [

@@ -27,6 +27,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<Dawnli
   };
   const workspaceWatcher = vscode.workspace.createFileSystemWatcher('**/*');
   context.subscriptions.push(workspaceWatcher);
+  const configuredPath = vscode.workspace
+    .getConfiguration('dawnlight.shaderPack')
+    .get<string>('catalog.path', '')
+    .trim();
+  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  const catalogPath = configuredPath
+    ? path.resolve(workspaceRoot ?? process.cwd(), configuredPath.replace('${workspaceFolder}', workspaceRoot ?? ''))
+    : undefined;
 
   const clientOptions: LanguageClientOptions = {
     documentSelector: [
@@ -34,7 +42,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<Dawnli
       { scheme: 'file', language: 'jsonc' }
     ],
     initializationOptions: {
-      clientProtocolVersion: CONTRACT_VERSIONS.languageServerProtocol
+      clientProtocolVersion: CONTRACT_VERSIONS.languageServerProtocol,
+      catalogSnapshotVersions: [CONTRACT_VERSIONS.catalogSnapshot],
+      catalogPath
     },
     synchronize: {
       fileEvents: workspaceWatcher
