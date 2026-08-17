@@ -2,8 +2,10 @@ import {
   createConnection,
   DidChangeWatchedFilesParams,
   DidChangeWorkspaceFoldersParams,
+  ErrorCodes,
   InitializeResult,
   ProposedFeatures,
+  ResponseError,
   TextDocumentSyncKind,
   TextDocuments
 } from 'vscode-languageserver/node';
@@ -24,6 +26,11 @@ import { WorkspaceCompositionManager } from './composition';
 import { WorkspaceSymbolIndexManager } from './symbols';
 import { DawnlightCompletionService, mergeCompletionResults } from './completion';
 import {
+  DawnlightNavigationService,
+  DawnlightRenameError,
+  mergeHover
+} from './navigation';
+import {
   PackPathReference,
   ShaderPackProject,
   WorkspacePackDiscovery
@@ -41,6 +48,7 @@ const dynamicCompletion = new DawnlightCompletionService(documentStore, {
   composition,
   symbols: symbolIndex
 });
+const navigation = new DawnlightNavigationService(documentStore, composition, symbolIndex);
 let initializedWorkspaceFolders: string[] = [];
 
 function uriToPath(uri: string): string | undefined {
@@ -194,6 +202,9 @@ connection.onInitialize(params => {
         triggerCharacters: ['"', ':']
       },
       hoverProvider: true,
+      definitionProvider: true,
+      referencesProvider: true,
+      renameProvider: { prepareProvider: true },
       workspace: {
         workspaceFolders: {
           supported: true,
@@ -264,9 +275,49 @@ connection.onCompletion(async params => {
   );
 });
 
-connection.onHover(params => {
+connection.onDefinition(params => {
   const document = documents.get(params.textDocument.uri);
-  return document ? schemaService.hover(document, params.position) : null;
+  return document ? navigation.definition(document, params.position) : null;
+});
+
+connection.onReferences(params => {
+  const document = documents.get(params.textDocument.uri);
+  return document
+    ? navigation.references(document, params.position, params.context.includeDeclaration)
+    : null;
+});
+
+connection.onPrepareRename(params => {
+  const document = documents.get(params.textDocument.uri);
+  if (!document) return null;
+  try {
+    return navigation.prepareRename(document, params.position);
+  } catch (error) {
+    if (error instanceof DawnlightRenameError) {
+      throw new ResponseError(ErrorCodes.InvalidRequest, error.message);
+    }
+    throw error;
+  }
+});
+
+connection.onRenameRequest(params => {
+  const document = documents.get(params.textDocument.uri);
+  if (!document) return null;
+  try {
+    return navigation.rename(document, params.position, params.newName);
+  } catch (error) {
+    if (error instanceof DawnlightRenameError) {
+      throw new ResponseError(ErrorCodes.InvalidRequest, error.message);
+    }
+    throw error;
+  }
+});
+
+connection.onHover(async params => {
+  const document = documents.get(params.textDocument.uri);
+  if (!document) return null;
+  const schemaHover = await schemaService.hover(document, params.position);
+  return mergeHover(schemaHover, navigation.hover(document, params.position));
 });
 
 documents.onDidOpen(event => {

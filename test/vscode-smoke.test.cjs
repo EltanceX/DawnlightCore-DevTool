@@ -29,6 +29,26 @@ function completionLabels(items) {
   }));
 }
 
+function positionForString(document, value, occurrence = 0) {
+  const text = document.getText();
+  let offset = -1;
+  for (let index = 0; index <= occurrence; index += 1) {
+    offset = text.indexOf(`"${value}"`, offset + 1);
+  }
+  assert.notEqual(offset, -1, `Expected ${value} in ${document.uri.fsPath}.`);
+  return document.positionAt(offset + 1);
+}
+
+async function executeUntil(command, args, predicate) {
+  let result;
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    result = await vscode.commands.executeCommand(command, ...args);
+    if (predicate(result)) return result;
+    await new Promise(resolve => setTimeout(resolve, 25));
+  }
+  return result;
+}
+
 suite('Dawnlight declarative schema smoke test', () => {
   test('extension activates its language client and exposes contract versions', async () => {
     const extension = vscode.extensions.getExtension(
@@ -94,6 +114,39 @@ suite('Dawnlight declarative schema smoke test', () => {
       .map(content => typeof content === 'string' ? content : content.value || '')
       .join('\n');
     assert.match(contents, /Manifest format version/i);
+  });
+
+  test('pack-local Definition, References, and semantic Hover work across fragments', async () => {
+    const definitionDocument = await openFixture(
+      'fixtures/valid/minimal/manifest/options/basic.json'
+    );
+    const usageDocument = await openFixture(
+      'fixtures/valid/minimal/manifest/programs/main.json'
+    );
+    const usagePosition = positionForString(usageDocument, 'example:minimal/enabled');
+    const definitions = await executeUntil(
+      'vscode.executeDefinitionProvider', [usageDocument.uri, usagePosition],
+      value => Array.isArray(value) && value.length > 0
+    );
+    assert.equal(definitions?.length, 1);
+    assert.equal(definitions[0].uri.fsPath, definitionDocument.uri.fsPath);
+
+    const references = await vscode.commands.executeCommand(
+      'vscode.executeReferenceProvider',
+      definitionDocument.uri,
+      positionForString(definitionDocument, 'example:minimal/enabled')
+    );
+    assert.ok(references?.some(location => location.uri.fsPath === usageDocument.uri.fsPath));
+
+    const hovers = await vscode.commands.executeCommand(
+      'vscode.executeHoverProvider', usageDocument.uri, usagePosition
+    );
+    const contents = (hovers || []).flatMap(hover => hover.contents || [])
+      .map(content => typeof content === 'string' ? content : content.value || '')
+      .join('\n');
+    assert.match(contents, /Option.*example:minimal\/enabled/s);
+    assert.match(contents, /Default.*true/s);
+    assert.match(contents, /manifest\/options\/basic\.json/);
   });
 
   test('root completion exposes Manifest fields', async () => {

@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased - V2-5
+
+- Added pack-local Definition and References for option, resource, program, and pass IDs across fragments and Settings UI.
+- Added Definition for fragment, Settings, shader, and asset paths with normalized pack-relative path Hover.
+- Added symbol-aware Hover summaries for option/resource/program/pass metadata and definition fragments, merged with Schema Hover.
+- Added prepare Rename and previewable `WorkspaceEdit` results for confirmed IDs and JSON paths without moving files.
+- Added explicit Rename rejection for duplicate IDs, JSONC syntax errors, unresolved/ambiguous references, invalid names, collisions, and stale indexes.
+- Added pass ordering references and multi-pack/overlay/stale-generation isolation tests.
+
 ## Unreleased - V2-4
 
 - Added dynamic JSON/JSONC completion merged with existing Schema completion.

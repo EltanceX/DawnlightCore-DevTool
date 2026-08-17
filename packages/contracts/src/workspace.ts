@@ -104,6 +104,7 @@ export type DawnlightReferenceKind =
   | 'option'
   | 'resource'
   | 'program'
+  | 'pass'
   | 'path'
   | 'shader'
   | 'asset';

@@ -230,7 +230,7 @@ function addIdReference(
   references: DawnlightReferenceSnapshot[],
   document: JsoncDocumentSnapshot,
   jsonPath: readonly DawnlightJsonPathSegment[],
-  kind: Extract<DawnlightReferenceKind, 'option' | 'resource' | 'program'>,
+  kind: Extract<DawnlightReferenceKind, 'option' | 'resource' | 'program' | 'pass'>,
   targetId: string
 ): void {
   const node = document.nodeAtPath(jsonPath);
@@ -264,6 +264,9 @@ function collectDocumentReferences(
     if (property === 'option') addIdReference(references, document, jsonPath, 'option', value);
     else if (property === 'program' || property === 'programs') {
       addIdReference(references, document, jsonPath, 'program', value);
+    } else if ((property === 'before' || property === 'after' || property === 'requires') &&
+      jsonPath.includes('ordering')) {
+      addIdReference(references, document, jsonPath, 'pass', value);
     } else if (property === 'resource' || property === 'source' || property === 'destination' ||
       property === 'inputs' || property === 'outputs') {
       addIdReference(references, document, jsonPath, 'resource', value);
