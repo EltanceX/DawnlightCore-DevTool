@@ -25,7 +25,7 @@ external Snapshot with `dawnlight.shaderPack.catalog.path`; invalid or
 incompatible files fall back to the bundled Dawnlight 3.1 Catalog after a
 Language Server restart.
 
-Path Rename updates confirmed JSON references only; it never moves shader, asset, fragment, or Settings files. Catalog unknown-ID/version diagnostics, shader-code semantics, and production runtime diagnostics remain planned work for the later Catalog/Analyzer milestones.
+Path Rename updates confirmed JSON references only; it never moves shader, asset, fragment, or Settings files. V2 Catalog diagnostics and optional Analyzer integration are included in `0.2.0`; production engine Analyzer parity, shader-code semantics, graph/variant views and live Catalog reload are planned for V3.
 
 ## Local development
 

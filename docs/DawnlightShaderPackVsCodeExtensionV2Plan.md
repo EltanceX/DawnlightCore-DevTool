@@ -70,16 +70,14 @@
 
 | 版本 | 重点 |
 |---|---|
-| 0.2.0 | Language Server、工作区发现、符号索引、动态补全、导航和快速诊断 |
-| 0.2.1 | Catalog Snapshot v1、Catalog completion、版本协商和 fallback |
-| 0.2.2 | 可选 C# Analyzer sidecar、保存后权威诊断和结构化 Problems |
-| 0.3.0+ | GLSL 语义、variant explain、Pipeline Graph、热重载 |
+| 0.2.0（已发布） | V2-0 至 V2-10：Language Server、工作区发现、符号索引、动态补全、导航、快速诊断、Catalog authoring 和 Analyzer 客户端边界 |
+| 0.3.0+（V3） | 生产 Catalog/Analyzer parity、GLSL 语义、variant explain、Pipeline Graph、热重载和平台 sidecar |
 
 如果希望第二版只发布一次，也应按上述内部里程碑顺序开发和提交，不能同时并行构建不稳定的 LSP、Catalog 和 Analyzer。
 
 ## 4. 第二版非目标
 
-0.2.x 暂不实现：
+V2 发布时明确暂不实现、现归入 V3 的能力：
 
 - 自研完整 GLSL parser/compiler；
 - shader 编译成功性判断；
@@ -219,7 +217,7 @@ ShaderFile
 AssetFile
 ```
 
-0.2.1 Catalog 符号：
+V2 Catalog 符号：
 
 ```text
 StageTemplate
@@ -430,7 +428,7 @@ label + kind + insertion range + insertText
 - Rename 可由 VS Code 预览和撤销；
 - 不安全 Rename 返回清晰拒绝原因。
 
-### V2-6：快速跨文件诊断
+### V2-6：快速跨文件诊断（已完成）
 
 Language Server 即时诊断：
 
@@ -447,7 +445,7 @@ Language Server 即时诊断：
 - UI option 明确重复或遗漏；
 - translation key 缺失；
 - ordering self-reference；
-- Catalog ID/version unknown（0.2.1）。
+- Catalog ID/version unknown（已在 V2-9 完成）。
 
 调度建议：
 
@@ -466,7 +464,7 @@ Language Server 即时诊断：
 - 修改一个 fragment 只重算所属 pack；
 - Analyzer Offline 时 L0-L2 不受影响。
 
-## 9. Catalog Snapshot v1（0.2.1）
+## 9. Catalog Snapshot v1（原计划 0.2.1，已并入 0.2.0）
 
 ### 9.1 推荐数据结构
 
@@ -521,7 +519,7 @@ Language Server 即时诊断：
 
 禁止把这些 ID 固化到 Schema enum。
 
-## 10. C# Analyzer Sidecar（0.2.2）
+## 10. C# Analyzer Sidecar（原计划 0.2.2，已并入 0.2.0）
 
 ### 10.1 协议
 
@@ -847,29 +845,31 @@ C# production Analyzer
 
 ## 16. 0.2.0 验收清单
 
-- [ ] 工作区可自动发现一个或多个光影包；
-- [ ] root composition 可识别任意合法 fragment/settings 路径；
-- [ ] JSONC 未保存内容参与项目模型；
-- [ ] 单 fragment 临时语法错误不会清空整个 pack 索引；
-- [ ] option/resource/program/pass 支持跨文件动态补全；
-- [ ] shader/asset/fragment/settings 支持路径补全和跳转；
-- [ ] 支持 pack-local Definition、References 和 Hover；
-- [ ] 安全 Rename 可生成可预览/撤销的 WorkspaceEdit；
-- [ ] duplicate、unknown reference、path escape 和类型不匹配有快速诊断；
-- [ ] 多 pack 符号、引用和诊断严格隔离；
-- [ ] completion 不等待 C# Analyzer；
-- [ ] Analyzer 不存在时 Schema、补全、导航和 L0-L2 诊断可用；
-- [ ] Catalog 可使用 bundled fallback 并显示来源/hash；
-- [ ] Dawnlight v3.1 初次索引和 warm completion 达到性能目标；
-- [ ] 现有 0.1.0 Schema、snippets 和普通 JSON 隔离测试无回归；
-- [ ] VSIX 在干净 profile 安装并通过多 pack 集成测试。
+- [x] 工作区可自动发现一个或多个光影包；
+- [x] root composition 可识别任意合法 fragment/settings 路径；
+- [x] JSONC 未保存内容参与项目模型；
+- [x] 单 fragment 临时语法错误不会清空整个 pack 索引；
+- [x] option/resource/program/pass 支持跨文件动态补全；
+- [x] shader/asset/fragment/settings 支持路径补全和跳转；
+- [x] 支持 pack-local Definition、References 和 Hover；
+- [x] 安全 Rename 可生成可预览/撤销的 WorkspaceEdit；
+- [x] duplicate、unknown reference、path escape 和类型不匹配有快速诊断；
+- [x] 多 pack 符号、引用和诊断严格隔离；
+- [x] completion 不等待 C# Analyzer；
+- [x] Analyzer 不存在时 Schema、补全、导航和 L0-L2 诊断可用；
+- [x] Catalog 可使用 bundled fallback 并显示来源/hash；
+- [x] Dawnlight v3.1 初次索引和 warm completion 达到性能目标；
+- [x] 现有 0.1.0 Schema、snippets 和普通 JSON 隔离测试无回归；
+- [x] VSIX 在干净 profile 安装并通过集成测试。
 
-## 17. 立即开始的推荐工作
+## 17. 后续路线
 
-下一阶段优先完成以下三个里程碑：
+V2-0 至 V2-10 已全部完成。下一阶段不再重复扩展静态 Schema，而应按以下顺序推进：
 
-1. **V2-0 Contracts/Language Server scaffold**：建立 TypeScript workspace 和可启动的空 LSP；
-2. **V2-1 Workspace Discovery**：从 `shaderpack.json` 建立多 pack 项目模型；
-3. **V2-2/V2-3 Composition + Symbol Index**：让未保存 JSONC fragment 中的符号进入稳定索引。
+1. **V3-0 生产 Catalog 与 Analyzer parity**：让编辑器使用引擎真实注册集合和权威诊断；
+2. **V3-1 graph/variant contract**：实现 `dumpGraph`、`explainVariant` 和可导航的运行时图；
+3. **V3-2 shader source semantic index**：建立 shader 与 Manifest resource/binding/stage interface 的关联；
+4. **V3-3/V3-4 工作流和可视化**：live reload、Code Actions、状态/trace、Graph Webview；
+5. **V3-5 发布和规模化**：sidecar 平台包、真实大 pack 基线和 CI soak tests。
 
-在这三个里程碑完成前，不开始 Catalog exporter、C# Analyzer、GLSL parser 或 Webview。动态补全、导航和快速诊断必须共享同一份 Workspace/Symbol Model，避免为每个功能重复解析 Manifest。
+详细完成度和 V3 计划见 [`DawnlightShaderPackVsCodeExtensionV2CompletionAndV3Plan.md`](DawnlightShaderPackVsCodeExtensionV2CompletionAndV3Plan.md)。

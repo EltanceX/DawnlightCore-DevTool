@@ -2,12 +2,13 @@
 
 ## 0.2.0 - V2
 
+- V2-0 through V2-10 are included in this release; the milestone sections below are retained as implementation history.
 - Added workspace pack discovery, JSONC composition, pack-local symbol/reference indexing, and dynamic completion.
 - Added Definition, References, Hover, Rename, fast cross-file diagnostics, Catalog Snapshot v1 negotiation, and bundled Catalog fallback.
 - Added optional C# Analyzer sidecar validation with save-triggered authoritative diagnostics and graceful failure handling.
 - Added strict TypeScript workspace contracts, bundled Language Server/client runtime, benchmark coverage, and clean-profile VSIX acceptance.
 
-## Unreleased - V2-8
+## 0.2.0 - V2-8 (history)
 
 - Added Catalog contract-version negotiation and configurable external Snapshot loading with hash validation and bundled fallback.
 - Added context-aware ID/version completion for Stage Templates, Services, Semantics, EngineDraw Providers, Capabilities, and resource formats.
@@ -15,13 +16,13 @@
 - Added Catalog metadata Hover with exact version, value kind, dependencies, source, host, and canonical hash.
 - Added Definition into readonly `dawnlight-catalog:` virtual documents served by the Language Server.
 
-## Unreleased - V2-7
+## 0.2.0 - V2-7 (history)
 
 - Added Catalog Snapshot v1 TypeScript and JSON Schema contracts with deterministic canonical SHA-256 hashing.
 - Added a bundled Dawnlight 3.1 fallback Snapshot and `dawnlight/catalogSnapshot` status request.
 - Added runtime validation for host, supported formats, entry collections, versions, and duplicate IDs.
 
-## Unreleased - V2-6
+## 0.2.0 - V2-6 (history)
 
 - Added fast cross-file JSONC, path, symbol, and graph diagnostics with a 175 ms generation-safe refresh.
 - Added missing/invalid fragment, Settings, shader, and asset path diagnostics with pack-relative ranges.
@@ -31,7 +32,7 @@
 - Merged independent diagnostic owners before publishing so Schema, syntax, and L2 results do not erase one another; stale Schema results are discarded.
 - Added LSP integration and VS Code smoke coverage for diagnostic source isolation, malformed overlays, stale results, and multi-file graph rules.
 
-## Unreleased - V2-5
+## 0.2.0 - V2-5 (history)
 
 - Added pack-local Definition and References for option, resource, program, and pass IDs across fragments and Settings UI.
 - Added Definition for fragment, Settings, shader, and asset paths with normalized pack-relative path Hover.
@@ -40,21 +41,21 @@
 - Added explicit Rename rejection for duplicate IDs, JSONC syntax errors, unresolved/ambiguous references, invalid names, collisions, and stale indexes.
 - Added pass ordering references and multi-pack/overlay/stale-generation isolation tests.
 
-## Unreleased - V2-4
+## 0.2.0 - V2-4 (history)
 
 - Added dynamic JSON/JSONC completion merged with existing Schema completion.
 - Added pack-local fragment/settings/shader path completion and option/resource/program/pass ID candidates.
 - Added graphics/compute, binding/resource kind, history lifetime, Settings widget and translation key filtering.
 - Added completion item details, sort order, JSON-safe insert text and precise replacement ranges.
 
-## Unreleased - V2-3
+## 0.2.0 - V2-3 (history)
 
 - Added pack-local Symbol/Reference Index snapshots for options, resources, programs, passes, Settings UI, shader paths, and asset paths.
 - Added duplicate canonical ID detection with precise definition ranges and `DLSYMBOL0001` diagnostics.
 - Added strict multi-pack isolation and incremental affected-project rebuilds with immutable atomic snapshots.
 - Added `dawnlight/symbolSnapshot` and tests for resolved references, file symbols, duplicates, overlays, and incremental reuse.
 
-## Unreleased - V2-2
+## 0.2.0 - V2-2 (history)
 
 - Added JSONC document snapshots with comments, trailing commas, syntax errors, precise AST ranges, source kind, and LSP document versions.
 - Added unsaved overlay priority over disk content without writing edits back to pack files.
@@ -62,7 +63,7 @@
 - Added malformed-fragment isolation, atomic composition generations, cancellation, and stale-result rejection.
 - Added composition snapshot LSP contract and tests for root reorder, document version changes, and unsaved definitions.
 
-## Unreleased - V2-1
+## 0.2.0 - V2-1 (history)
 
 - Added multi-root workspace discovery for one or more `shaderpack.json` projects.
 - Added normalized pack-relative fragment, settings, and shader-root references with default build/dependency directory exclusions.
@@ -71,7 +72,7 @@
 - Added Language Server Schema completion, Hover, and diagnostics for explicitly referenced fragment/settings files outside the first-version static directory layout.
 - Added isolated multi-pack, nested-pack, malformed-root, file-event, LSP process, real VS Code, and installed-VSIX coverage.
 
-## Unreleased - V2-0
+## 0.2.0 - V2-0 (history)
 
 - Added npm workspaces and strict TypeScript project references for contracts, Language Server, VS Code client, and shared test utilities.
 - Added independent protocol/data contract versions and stable diagnostic namespaces.
