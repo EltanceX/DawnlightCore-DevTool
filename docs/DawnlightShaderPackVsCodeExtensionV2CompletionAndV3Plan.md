@@ -76,6 +76,11 @@ V3 的主题应从“理解 JSON pack”转向“理解引擎实际运行结果�
 
 先建立可信数据源，否则后续 graph 和 shader 诊断都会建立在手工 Catalog 上。
 
+当前进度（2026-08-18）：Catalog source-registration v1、引擎侧生产 exporter、
+Node canonical exporter/parity、Analyzer `getCatalog` 和 LSP parity 状态已经完成
+第一 slice；生产 C# Analyzer 的 `validatePack` 规则接入仍是下一子阶段。详细验收见
+`docs/DawnlightShaderPackVsCodeExtensionV3M0Acceptance.md`。
+
 - 在 Survivalcraft/ShaderTest 侧实现 Catalog exporter，导出 host/version/build、formats、stage templates、services、semantics、draw providers、capabilities、resource formats 和 limits；
 - 为 exporter 和 TypeScript `CatalogSnapshot` 建立 canonical hash 与 registration parity 测试；
 - 实现 Analyzer sidecar 的 `getCatalog`，验证 catalog hash，不匹配时明确降级；
@@ -154,9 +159,10 @@ V3 不建议一开始开发 Webview 或大规模 UI。先锁定真实 Catalog、
 
 ## 7. V3-0 完成定义
 
-- [ ] 真实引擎 Catalog exporter 生成合法、可 hash、可复现的 Snapshot；
-- [ ] bundled/external Catalog 与引擎注册集合通过 parity 检查；
+- [x] 真实引擎 Catalog exporter 生成合法、可复现的 source-registration，并由共享工具生成可 hash Snapshot；
+- [x] bundled/external Catalog 与引擎注册集合通过 strict parity golden test；
+- [x] Analyzer `getCatalog` contract、hash 校验、版本协商和明确降级状态已冻结；
 - [ ] 生产 Analyzer 可完成 initialize、getCatalog、validatePack，并返回稳定 DLMAN code/pointer；
-- [ ] valid/invalid/overlay/stale/timeout/crash fixtures 全部通过；
-- [ ] `npm test`、VS Code smoke、VSIX acceptance 和 benchmark strict 保持通过；
+- [x] 客户端 valid/invalid/overlay/stale/timeout/crash 与 parity fixture 通过；
+- [ ] `npm test`、VS Code smoke、VSIX acceptance 和 benchmark strict 在最终 sidecar 接入后再次锁定；
 - [ ] V3-1 所需的 graph/variant contract 已冻结并有最小样例。

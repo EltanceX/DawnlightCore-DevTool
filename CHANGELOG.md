@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased - V3-0 Catalog parity
+
+- Added source-registration v1 schema, canonical exporter, strict parity diff, and a generated Dawnlight 3.1 engine fixture.
+- Added the Survivalcraft `ShaderPackCatalogExporter` adapter that reads live stage, service, semantic, EngineDraw, capability, and texture-format catalogs.
+- Added Analyzer `getCatalog` negotiation, canonical hash validation, explicit mismatch/incompatible states, and the `Dawnlight: Refresh Analyzer Catalog` command.
+
 ## 0.2.0 - V2
 
 - V2-0 through V2-10 are included in this release; the milestone sections below are retained as implementation history.
