@@ -1,0 +1,561 @@
+{
+  "sourceContractVersion": 1,
+  "host": {
+    "id": "dawnlight",
+    "displayName": "Dawnlight",
+    "version": "3.1",
+    "build": "bundled-authoring-fallback"
+  },
+  "supportedFormats": {
+    "manifest": [
+      3
+    ],
+    "sourceComposition": [
+      1
+    ],
+    "settingsUi": [
+      1
+    ]
+  },
+  "registrations": {
+    "stageTemplates": [
+      {
+        "id": "dawnlight:command_list",
+        "version": 1,
+        "description": "Executes an ordered list of declarative pipeline commands."
+      },
+      {
+        "id": "dawnlight:compute",
+        "version": 1,
+        "description": "Executes a compute shader pass."
+      },
+      {
+        "id": "dawnlight:cubemap_capture",
+        "version": 1,
+        "description": "Captures the world into a cubemap resource."
+      },
+      {
+        "id": "dawnlight:fullscreen",
+        "version": 1,
+        "description": "Executes a fullscreen graphics pass."
+      },
+      {
+        "id": "dawnlight:model_shadow",
+        "version": 1,
+        "description": "Renders model shadow-map layers."
+      },
+      {
+        "id": "dawnlight:ocean_fft",
+        "version": 1,
+        "description": "Executes the ocean FFT simulation stage."
+      },
+      {
+        "id": "dawnlight:point_lights",
+        "version": 1,
+        "description": "Builds clustered point-light data."
+      }
+    ],
+    "services": [
+      {
+        "id": "dawnlight:cubemap",
+        "version": 1,
+        "description": "Provides the shared environment cubemap.",
+        "requiredServices": []
+      },
+      {
+        "id": "dawnlight:frame_uniforms",
+        "version": 1,
+        "description": "Provides engine-owned frame uniform state.",
+        "requiredServices": []
+      },
+      {
+        "id": "dawnlight:model_shadows",
+        "version": 1,
+        "description": "Provides model shadow resources and rendering state.",
+        "requiredServices": []
+      },
+      {
+        "id": "dawnlight:ocean_wave",
+        "version": 1,
+        "description": "Provides ocean wave simulation resources.",
+        "requiredServices": []
+      },
+      {
+        "id": "dawnlight:point_lights",
+        "version": 1,
+        "description": "Provides clustered point-light resources and semantics.",
+        "requiredServices": []
+      },
+      {
+        "id": "dawnlight:scene_target",
+        "version": 1,
+        "description": "Provides the engine scene render target.",
+        "requiredServices": []
+      },
+      {
+        "id": "dawnlight:terrain_shadows",
+        "version": 1,
+        "description": "Provides terrain shadow resources and rendering state.",
+        "requiredServices": []
+      }
+    ],
+    "semantics": [
+      {
+        "id": "dawnlight:atmosphere/fog_color",
+        "version": 1,
+        "description": "Current world fog color.",
+        "valueKind": "vector3",
+        "requiredServices": []
+      },
+      {
+        "id": "dawnlight:atmosphere/fog_proc",
+        "version": 1,
+        "description": "Current fog interpolation factor.",
+        "valueKind": "float",
+        "requiredServices": []
+      },
+      {
+        "id": "dawnlight:atmosphere/season",
+        "version": 1,
+        "description": "Current season index.",
+        "valueKind": "int",
+        "requiredServices": []
+      },
+      {
+        "id": "dawnlight:atmosphere/skylight",
+        "version": 1,
+        "description": "Current skylight value.",
+        "valueKind": "int",
+        "requiredServices": []
+      },
+      {
+        "id": "dawnlight:atmosphere/sun_direction",
+        "version": 1,
+        "description": "Normalized world-space sun direction.",
+        "valueKind": "vector3",
+        "requiredServices": []
+      },
+      {
+        "id": "dawnlight:atmosphere/sun_position",
+        "version": 1,
+        "description": "Current world-space sun position.",
+        "valueKind": "vector3",
+        "requiredServices": []
+      },
+      {
+        "id": "dawnlight:atmosphere/time_of_season",
+        "version": 1,
+        "description": "Progress through the current season.",
+        "valueKind": "float",
+        "requiredServices": []
+      },
+      {
+        "id": "dawnlight:atmosphere/visibility_range",
+        "version": 1,
+        "description": "Current world visibility range.",
+        "valueKind": "float",
+        "requiredServices": []
+      },
+      {
+        "id": "dawnlight:camera/direction",
+        "version": 1,
+        "description": "Current camera view direction.",
+        "valueKind": "vector3",
+        "requiredServices": []
+      },
+      {
+        "id": "dawnlight:camera/far_plane",
+        "version": 1,
+        "description": "Camera far clipping distance.",
+        "valueKind": "float",
+        "requiredServices": []
+      },
+      {
+        "id": "dawnlight:camera/near_plane",
+        "version": 1,
+        "description": "Camera near clipping distance.",
+        "valueKind": "float",
+        "requiredServices": []
+      },
+      {
+        "id": "dawnlight:camera/normal_world_to_view_matrix",
+        "version": 1,
+        "description": "World-to-view normal matrix.",
+        "valueKind": "matrix3",
+        "requiredServices": []
+      },
+      {
+        "id": "dawnlight:camera/position",
+        "version": 1,
+        "description": "Current camera world position.",
+        "valueKind": "vector3",
+        "requiredServices": []
+      },
+      {
+        "id": "dawnlight:camera/projection_inverse_matrix",
+        "version": 1,
+        "description": "Inverse camera projection matrix.",
+        "valueKind": "matrix4",
+        "requiredServices": []
+      },
+      {
+        "id": "dawnlight:camera/projection_matrix",
+        "version": 1,
+        "description": "Current camera projection matrix.",
+        "valueKind": "matrix4",
+        "requiredServices": []
+      },
+      {
+        "id": "dawnlight:camera/view_inverse_matrix",
+        "version": 1,
+        "description": "Inverse camera view matrix.",
+        "valueKind": "matrix4",
+        "requiredServices": []
+      },
+      {
+        "id": "dawnlight:camera/view_matrix",
+        "version": 1,
+        "description": "Current camera view matrix.",
+        "valueKind": "matrix4",
+        "requiredServices": []
+      },
+      {
+        "id": "dawnlight:environment/temperature",
+        "version": 1,
+        "description": "Current environment temperature.",
+        "valueKind": "float",
+        "requiredServices": []
+      },
+      {
+        "id": "dawnlight:environment/temperature_target",
+        "version": 1,
+        "description": "Target environment temperature.",
+        "valueKind": "float",
+        "requiredServices": []
+      },
+      {
+        "id": "dawnlight:environment/view_underwater_depth",
+        "version": 1,
+        "description": "Camera depth below the water surface.",
+        "valueKind": "float",
+        "requiredServices": []
+      },
+      {
+        "id": "dawnlight:frame/game_time",
+        "version": 1,
+        "description": "Current game time.",
+        "valueKind": "float",
+        "requiredServices": []
+      },
+      {
+        "id": "dawnlight:frame/screen_size",
+        "version": 1,
+        "description": "Current render viewport size.",
+        "valueKind": "vector2",
+        "requiredServices": []
+      },
+      {
+        "id": "dawnlight:frame/system_time",
+        "version": 1,
+        "description": "Current system time.",
+        "valueKind": "float",
+        "requiredServices": []
+      },
+      {
+        "id": "dawnlight:frame/view_height",
+        "version": 1,
+        "description": "Current render viewport height.",
+        "valueKind": "float",
+        "requiredServices": []
+      },
+      {
+        "id": "dawnlight:frame/view_width",
+        "version": 1,
+        "description": "Current render viewport width.",
+        "valueKind": "float",
+        "requiredServices": []
+      },
+      {
+        "id": "dawnlight:lighting/handheld_color_intensity",
+        "version": 1,
+        "description": "Handheld light color and intensity.",
+        "valueKind": "vector4",
+        "requiredServices": []
+      },
+      {
+        "id": "dawnlight:lighting/handheld_position_radius",
+        "version": 1,
+        "description": "Handheld light position and radius.",
+        "valueKind": "vector4",
+        "requiredServices": []
+      },
+      {
+        "id": "dawnlight:point_lights/cluster_dimensions",
+        "version": 1,
+        "description": "Point-light cluster grid dimensions.",
+        "valueKind": "intVector3",
+        "requiredServices": [
+          "dawnlight:point_lights@1"
+        ]
+      },
+      {
+        "id": "dawnlight:point_lights/cluster_x",
+        "version": 1,
+        "description": "Camera cluster X coordinate.",
+        "valueKind": "int",
+        "requiredServices": [
+          "dawnlight:point_lights@1"
+        ]
+      },
+      {
+        "id": "dawnlight:point_lights/cluster_y",
+        "version": 1,
+        "description": "Camera cluster Y coordinate.",
+        "valueKind": "int",
+        "requiredServices": [
+          "dawnlight:point_lights@1"
+        ]
+      },
+      {
+        "id": "dawnlight:point_lights/cluster_z",
+        "version": 1,
+        "description": "Camera cluster Z coordinate.",
+        "valueKind": "int",
+        "requiredServices": [
+          "dawnlight:point_lights@1"
+        ]
+      },
+      {
+        "id": "dawnlight:point_lights/total_lights",
+        "version": 1,
+        "description": "Number of active point lights.",
+        "valueKind": "uint",
+        "requiredServices": [
+          "dawnlight:point_lights@1"
+        ]
+      },
+      {
+        "id": "dawnlight:shaft/sun_screen_uv",
+        "version": 1,
+        "description": "Sun position in screen UV coordinates.",
+        "valueKind": "vector2",
+        "requiredServices": []
+      },
+      {
+        "id": "dawnlight:weather/precipitation_proc",
+        "version": 1,
+        "description": "Current precipitation interpolation factor.",
+        "valueKind": "float",
+        "requiredServices": []
+      }
+    ],
+    "engineDrawProviders": [
+      {
+        "id": "dawnlight:lighting/handheld_prepare",
+        "version": 1,
+        "description": "Prepares handheld-light runtime state.",
+        "requiredServices": [],
+        "command": "engineDraw"
+      },
+      {
+        "id": "dawnlight:model_shadow/alpha_tested_instanced",
+        "version": 1,
+        "description": "Draws alpha-tested instanced model shadows.",
+        "requiredServices": [
+          "dawnlight:model_shadows@1"
+        ],
+        "command": "engineDraw"
+      },
+      {
+        "id": "dawnlight:model_shadow/alpha_tested_skinned",
+        "version": 1,
+        "description": "Draws alpha-tested skinned model shadows.",
+        "requiredServices": [
+          "dawnlight:model_shadows@1"
+        ],
+        "command": "engineDraw"
+      },
+      {
+        "id": "dawnlight:model_shadow/opaque_instanced",
+        "version": 1,
+        "description": "Draws opaque instanced model shadows.",
+        "requiredServices": [
+          "dawnlight:model_shadows@1"
+        ],
+        "command": "engineDraw"
+      },
+      {
+        "id": "dawnlight:model_shadow/opaque_skinned",
+        "version": 1,
+        "description": "Draws opaque skinned model shadows.",
+        "requiredServices": [
+          "dawnlight:model_shadows@1"
+        ],
+        "command": "engineDraw"
+      },
+      {
+        "id": "dawnlight:shaft/prepare",
+        "version": 1,
+        "description": "Prepares sun-shaft visibility state.",
+        "requiredServices": [],
+        "command": "engineDraw"
+      },
+      {
+        "id": "dawnlight:shaft/sun",
+        "version": 1,
+        "description": "Draws the sun for shaft generation.",
+        "requiredServices": [],
+        "command": "engineDraw"
+      },
+      {
+        "id": "dawnlight:terrain/alpha_tested",
+        "version": 1,
+        "description": "Draws alpha-tested terrain geometry.",
+        "requiredServices": [],
+        "command": "engineDraw"
+      },
+      {
+        "id": "dawnlight:terrain/opaque",
+        "version": 1,
+        "description": "Draws opaque terrain geometry.",
+        "requiredServices": [],
+        "command": "engineDraw"
+      },
+      {
+        "id": "dawnlight:terrain/prepare",
+        "version": 1,
+        "description": "Prepares terrain rendering state.",
+        "requiredServices": [],
+        "command": "engineDraw"
+      },
+      {
+        "id": "dawnlight:terrain/sorted_translucent",
+        "version": 1,
+        "description": "Draws sorted translucent terrain geometry.",
+        "requiredServices": [],
+        "command": "engineDraw"
+      },
+      {
+        "id": "dawnlight:terrain/transparent",
+        "version": 1,
+        "description": "Draws transparent terrain geometry.",
+        "requiredServices": [],
+        "command": "engineDraw"
+      },
+      {
+        "id": "dawnlight:terrain_shadow/layer_0",
+        "version": 1,
+        "description": "Draws terrain shadow layer 0.",
+        "requiredServices": [
+          "dawnlight:terrain_shadows@1"
+        ],
+        "command": "engineDraw"
+      },
+      {
+        "id": "dawnlight:terrain_shadow/layer_1",
+        "version": 1,
+        "description": "Draws terrain shadow layer 1.",
+        "requiredServices": [
+          "dawnlight:terrain_shadows@1"
+        ],
+        "command": "engineDraw"
+      }
+    ],
+    "capabilities": [
+      {
+        "id": "dawnlight:model_shadow/max_instances",
+        "version": 1,
+        "description": "Maximum model-shadow instance count supported by the host.",
+        "valueKind": "integer"
+      },
+      {
+        "id": "dawnlight:model_shadow/max_joints",
+        "version": 1,
+        "description": "Maximum skinned-model joint count supported by the host.",
+        "valueKind": "integer"
+      }
+    ],
+    "resourceFormats": [
+      {
+        "id": "depth24",
+        "version": 1,
+        "description": "24-bit depth texture format.",
+        "valueKind": "texture",
+        "bytesPerPixel": 4,
+        "depth": true
+      },
+      {
+        "id": "depth32f",
+        "version": 1,
+        "description": "32-bit floating-point depth texture format.",
+        "valueKind": "texture",
+        "bytesPerPixel": 4,
+        "depth": true
+      },
+      {
+        "id": "r32f",
+        "version": 1,
+        "description": "Single-channel 32-bit floating-point color format.",
+        "valueKind": "texture",
+        "components": 1,
+        "bytesPerPixel": 4,
+        "depth": false
+      },
+      {
+        "id": "r8",
+        "version": 1,
+        "description": "Single-channel 8-bit normalized color format.",
+        "valueKind": "texture",
+        "components": 1,
+        "bytesPerPixel": 1,
+        "depth": false
+      },
+      {
+        "id": "rgb8",
+        "version": 1,
+        "description": "Three-channel 8-bit normalized color format.",
+        "valueKind": "texture",
+        "components": 3,
+        "bytesPerPixel": 3,
+        "depth": false
+      },
+      {
+        "id": "rgba16f",
+        "version": 1,
+        "description": "Four-channel 16-bit floating-point color format.",
+        "valueKind": "texture",
+        "components": 4,
+        "bytesPerPixel": 8,
+        "depth": false
+      },
+      {
+        "id": "rgba32f",
+        "version": 1,
+        "description": "Four-channel 32-bit floating-point color format.",
+        "valueKind": "texture",
+        "components": 4,
+        "bytesPerPixel": 16,
+        "depth": false
+      },
+      {
+        "id": "rgba8",
+        "version": 1,
+        "description": "Four-channel 8-bit normalized color format.",
+        "valueKind": "texture",
+        "components": 4,
+        "bytesPerPixel": 4,
+        "depth": false
+      },
+      {
+        "id": "srgba8",
+        "version": 1,
+        "description": "Four-channel 8-bit sRGB color format.",
+        "valueKind": "texture",
+        "components": 4,
+        "bytesPerPixel": 4,
+        "depth": false
+      }
+    ]
+  },
+  "limits": {}
+}
