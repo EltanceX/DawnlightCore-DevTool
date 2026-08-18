@@ -1,7 +1,7 @@
 # V3-1：运行时 Graph 与 Variant Explain 验收记录
 
 日期：2026-08-18
-状态：功能实现完成；发布级最终验收矩阵待主线执行后填写
+状态：V3-1 发布级验收完成（0.2.0 主线）
 范围：Runtime Graph/Variant Explain v1 contract、生产 Analyzer resolver、Language
 Server 编排、VS Code 只读视图、graph diagnostics 与 runtime navigation。
 
@@ -140,7 +140,7 @@ node --test --test-timeout=15000 `
   test/v3/runtime-analysis.test.cjs
 ```
 
-结果：`6 passed, 0 failed`。
+结果：`7 passed, 0 failed`。
 
 其中 4 个 contract/Schema 测试覆盖：
 
@@ -149,29 +149,33 @@ node --test --test-timeout=15000 `
 - graph hash、悬空引用、重复 ID、provenance、路径安全和未知字段；
 - variant inputs/defines 来源、inactive 约束与 JSON Schema 边界。
 
-2 个 Analyzer client/LSP 集成测试覆盖：
+3 个 Analyzer client/LSP/cache 集成测试覆盖：
 
 - framed sidecar graph/variant 请求、严格解析、取消和 client 可继续使用；
 - graph/variant immutable URI、Markdown/JSON/DOT 内容、program candidates、graph
   hazard source、Definition/Hover graph 导航、overlay 变更后 URI 失效。
+- 有界 LRU 快照缓存的命中、淘汰和不可变 URI 边界。
 
 这些是 V3-1 定向证据，不替代下面的完整发布级矩阵。
 
 ## 3. 发布级最终验收矩阵
 
-主线合并生产 sidecar 后应执行下列命令，并将结果、测试总数、产物大小和必要的
-commit 写回本表。当前统一标记为“待执行”，不沿用 V3-0 结果。
+主线合并生产 sidecar 后已执行下列命令；结果、测试总数、产物大小和必要的
+commit 已记录如下。
 
 | 验收项 | 命令 | 最终结果 |
 | --- | --- | --- |
-| 全量单元/LSP | `npm test` | 待执行 |
-| 静态检查 | `npm run lint` | 待执行 |
-| 性能门槛 | `$env:DAWNLIGHT_BENCHMARK_STRICT='1'; npm run benchmark` | 待执行 |
-| 生产 Analyzer | `$env:DAWNLIGHT_ENGINE_REPO='<engine>'; npm run test:engine-analyzer` | 待执行 |
-| VSIX 构建 | `npm run package` | 待执行 |
-| 真实 VS Code | `$env:DAWNLIGHT_RUN_VSCODE_TEST='1'; npm run test:vscode` | 待执行 |
-| 干净 profile VSIX | `$env:DAWNLIGHT_RUN_VSIX_TEST='1'; npm run test:vsix` | 待执行 |
-| diff 卫生 | `git diff --check` | 待执行 |
+| 全量单元/LSP | `npm test` | 通过，93/93 |
+| 静态检查 | `npm run lint` | 通过，28 个 CommonJS、50 个 JSON |
+| 性能门槛 | `$env:DAWNLIGHT_BENCHMARK_STRICT='1'; npm run benchmark` | 通过；fingerprint p95 0.3 ms、Graph render p95 5.4 ms、Variant render p95 0.6 ms、cache get p95 <0.001 ms |
+| 生产 Analyzer | `$env:DAWNLIGHT_ENGINE_REPO='<engine>'; npm run test:engine-analyzer` | 通过；sidecar commit `8803a507`，真实 Dawnlight_v3.1，Catalog `b5898125…`、graph `e4bcf778…`、variant `79cee6c9…` |
+| VSIX 构建 | `npm run package` | 通过；`dawnlight-shader-pack-tools-0.2.0.vsix`，19 files，308.51 KB |
+| 真实 VS Code | `$env:DAWNLIGHT_RUN_VSCODE_TEST='1'; npm run test:vscode` | 通过，exit 0 |
+| 干净 profile VSIX | `$env:DAWNLIGHT_RUN_VSIX_TEST='1'; npm run test:vsix` | 通过，exit 0；测试进程退出时报告一个 Windows 临时 profile 锁定警告，不影响安装/验收 |
+| diff 卫生 | `git diff --check` | 通过（提交前） |
+
+生产 Analyzer Release build 输出 16 个既有 `NU1902`（NCalc）漏洞警告、0 个错误；
+该警告不属于 V3-1 协议或运行时失败。
 
 生产 Analyzer 验收至少必须确认：
 
@@ -210,11 +214,14 @@ commit 写回本表。当前统一标记为“待执行”，不沿用 V3-0 结�
   reload 和状态/trace UX 属于 V3-3；
 - runtime graph 必须通过 Catalog parity gate。Analyzer 离线或 mismatch 时不使用
   旧 snapshot 伪造当前结果；
+- 当前 sidecar 的 `--catalog` snapshot/hash 用于协议协商和 presentation metadata，
+  runtime resolver 的语义注册集合仍来自引擎编译期 registry；两者的统一 metadata
+  parity pipeline 属于后续工作，不能把本地生成 hash 当作引擎注册表版本号；
 - 当前 sidecar 仍采用开发时外部路径配置，self-contained/platform VSIX packaging
   属于 V3-5。
 
 ## 6. 完成判定
 
-V3-1 功能实现与 6 个定向测试已经完成。只有第 3 节完整矩阵全部通过并填写后，
-本记录才可改为“发布级验收完成”。若生产 Analyzer 的 graph hash、contract parser
-或 stale/diagnostic isolation 任一项失败，V3-1 不得以“Analyzer 可选”为理由跳过。
+V3-1 功能实现、7 个定向测试和第 3 节完整矩阵均已完成。生产 Analyzer 的 graph
+hash、contract parser、取消恢复、stale/diagnostic isolation 均有自动化证据；后续
+若修改 resolver 或协议字段，应重新运行本矩阵，不得以“Analyzer 可选”为理由跳过。

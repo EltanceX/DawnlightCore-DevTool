@@ -2,7 +2,7 @@
 
 更新日期：2026-08-18
 当前发布版本：`0.2.0`
-当前里程碑：V3-1 功能实现完成，发布级最终验收进行中
+当前里程碑：V3-1 发布级验收完成，下一步进入 V3-2
 
 ## 1. 结论
 
@@ -29,36 +29,45 @@
 
 ## 3. 当前验收结果
 
-最近一次本地验证（V3-0 parity slice）：
+最近一次本地验证（V3-1 完整发布矩阵）：
 
 ```text
-npm test                         86 passed, 0 failed
+npm test                         93 passed, 0 failed
 npm run lint                     passed
 DAWNLIGHT_BENCHMARK_STRICT=1 npm run benchmark  passed
-npm run catalog:validate         passed
+DAWNLIGHT_ENGINE_REPO=... npm run test:engine-analyzer passed
+npm run package                  passed (0.2.0, 19 files, 308.51 KB)
+DAWNLIGHT_RUN_VSCODE_TEST=1 npm run test:vscode passed
+DAWNLIGHT_RUN_VSIX_TEST=1 npm run test:vsix passed
 ```
 
 Benchmark 结果（临时合成 pack）：
 
 | 指标 | 实测 | 目标 | 结果 |
 | --- | ---: | ---: | --- |
-| 初次 discovery/index | 约 26.7 ms | < 1000 ms | 通过 |
-| 增量 fragment rebuild | 约 8.5 ms | < 300 ms | 通过 |
-| warm completion p95 | 约 0.2 ms | < 50 ms | 通过 |
-| fast diagnostics | 约 2.3 ms | < 250 ms | 通过 |
+| 初次 discovery/index | 约 22.6 ms | < 1000 ms | 通过 |
+| 增量 fragment rebuild | 约 18.3 ms | < 300 ms | 通过 |
+| warm completion p95 | 约 0.6 ms | < 50 ms | 通过 |
+| fast diagnostics | 约 2.7 ms | < 250 ms | 通过 |
 | Analyzer warm response | 约 0.2 ms | < 2000 ms | 通过 |
+| runtime input fingerprint p95 | 约 0.3 ms | < 50 ms | 通过 |
+| runtime Graph Markdown render p95 | 约 5.4 ms | < 250 ms | 通过 |
+| runtime Variant Markdown render p95 | 约 0.6 ms | < 250 ms | 通过 |
+| runtime snapshot cache get p95 | < 0.001 ms | < 10 ms | 通过 |
 
 `0.2.0` VSIX 已生成并通过：
 
 ```text
 dawnlight-shader-pack-tools-0.2.0.vsix
-17 files, approximately 284 KB
+19 files, 308.51 KB
 ```
 
 真实 VS Code smoke 和 `DAWNLIGHT_RUN_VSIX_TEST=1 npm run test:vsix` 均已通过。Windows 上 VS Code 退出时偶尔留下锁定的临时 profile，这是测试清理警告，不影响 exit code 和安装验收结果。
 
-V3-1 当前已通过 6 个 graph/variant 定向测试：4 个 contract/Schema 测试和 2 个 Analyzer client/LSP 集成测试。发布级 `npm test`、lint、benchmark、生产 sidecar、VS Code smoke、VSIX acceptance 的最终结果将在
-`docs/DawnlightShaderPackVsCodeExtensionV3M1Acceptance.md` 由主线验收后登记；本节不沿用 V3-0 数值冒充 V3-1 结果。
+V3-1 当前已通过 7 个 graph/variant/cache 定向测试：4 个 contract/Schema 测试、2 个
+Analyzer client/LSP 集成测试和 1 个有界 LRU 测试。发布级 `npm test`、lint、benchmark、
+生产 sidecar、VS Code smoke、VSIX acceptance 的完整结果已登记在
+`docs/DawnlightShaderPackVsCodeExtensionV3M1Acceptance.md`。
 
 ## 4. V2 延期项在 V3 的状态
 
@@ -191,12 +200,11 @@ V3 不建议一开始开发 Webview 或大规模 UI。先锁定真实 Catalog、
 - [x] Catalog parity gate、unsaved overlays、`$/cancelRequest`、timeout/crash 降级、request/process/input stale guards 和有界 immutable cache 已接入；
 - [x] 两个 VS Code 命令、程序 Quick Pick、Markdown/JSON/DOT 虚拟文档和过期 URI 失效行为已接入；
 - [x] graph hazard 独立诊断、Manifest Definition/graph Definition 合并和 runtime Hover 已接入，不清空 L0-L2/Schema/保存后 Analyzer 诊断；
-- [x] 4 个 contract/Schema 与 2 个 Analyzer client/LSP 定向测试已通过；
-- [ ] 完整 `npm test`、lint、benchmark strict、生产 sidecar、VS Code smoke、VSIX acceptance 结果待主线最终验收后写入 V3M1 验收文档。
+- [x] 4 个 contract/Schema、2 个 Analyzer client/LSP 与 1 个 LRU 定向测试已通过；
+- [x] 完整 `npm test`（93/93）、lint、benchmark strict、生产 sidecar、VS Code smoke、VSIX acceptance 已写入 V3M1 验收文档。
 
-因此 V3-1 的功能实现已完成；最后一项是发布级证据登记，不再扩张本里程碑的
-功能范围。若最终矩阵发现回归，应修复后再把最后一项勾选，而不是把失败隐藏为
-“Analyzer 可选”。
+因此 V3-1 的功能实现与发布级证据均已完成，不再扩张本里程碑的功能范围。若后续
+矩阵发现回归，应修复后重新验收，而不是把失败隐藏为“Analyzer 可选”。
 
 ## 9. 下一步：V3-2 推荐切片
 
