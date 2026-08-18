@@ -52,7 +52,7 @@ Benchmark 结果（临时合成 pack）：
 
 ```text
 dawnlight-shader-pack-tools-0.2.0.vsix
-17 files, approximately 283 KB
+17 files, approximately 284 KB
 ```
 
 真实 VS Code smoke 和 `DAWNLIGHT_RUN_VSIX_TEST=1 npm run test:vsix` 均已通过。Windows 上 VS Code 退出时偶尔留下锁定的临时 profile，这是测试清理警告，不影响 exit code 和安装验收结果。

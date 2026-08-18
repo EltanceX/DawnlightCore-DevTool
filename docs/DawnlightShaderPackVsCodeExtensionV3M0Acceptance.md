@@ -98,6 +98,10 @@ npm test                PASS (86 tests)
 npm run lint            PASS
 npm run catalog:validate PASS
 npm run test:engine-analyzer PASS
+DAWNLIGHT_BENCHMARK_STRICT=1 npm run benchmark PASS
+npm run package          PASS (17 files, 284.4 KB)
+DAWNLIGHT_RUN_VSCODE_TEST=1 npm run test:vscode PASS
+DAWNLIGHT_RUN_VSIX_TEST=1 npm run test:vsix PASS
 git diff --check        PASS
 ```
 
