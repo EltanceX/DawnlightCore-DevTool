@@ -35,6 +35,32 @@ process.env.DAWNLIGHT_CATALOG_PATH = catalogPath;
 const catalog = JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
 const { DawnlightAnalyzerClient } = require('../packages/language-server/dist/analyzerClient');
 
+const HASH_PATTERN = /^[0-9a-f]{64}$/;
+const explainedProgramId = process.env.DAWNLIGHT_ENGINE_TEST_PROGRAM ||
+  'dawnlight:post_process/final';
+
+function runtimeParams(requestVersion, inputs = { options: {}, capabilities: {} }) {
+  return {
+    packRoot,
+    catalogHash: catalog.hash,
+    requestVersion,
+    overlays: [],
+    clientSupportedVersions: [1],
+    inputs,
+    includeInactive: true
+  };
+}
+
+function assertSuccessfulRuntimeResult(result, payloadName) {
+  assert.ok(result, `Production Analyzer did not return a ${payloadName} result.`);
+  assert.equal(result.compatible, true);
+  assert.equal(result.success, true);
+  assert.equal(result.selectedVersion, 1);
+  assert.equal(result.catalogHash, catalog.hash);
+  assert.match(result.manifestHash || '', HASH_PATTERN);
+  assert.ok(result[payloadName], `Production Analyzer omitted the ${payloadName} payload.`);
+}
+
 async function main() {
   const client = new DawnlightAnalyzerClient({
     analyzerPath: sidecar,
@@ -60,7 +86,7 @@ async function main() {
     });
     assert.ok(valid, 'Production Analyzer did not return a validatePack result.');
     assert.equal(valid.valid, true);
-    assert.match(valid.manifestHash || '', /^[0-9a-f]{64}$/);
+    assert.match(valid.manifestHash || '', HASH_PATTERN);
 
     const invalid = await client.validatePack({
       packRoot,
@@ -72,7 +98,96 @@ async function main() {
     assert.equal(invalid.valid, false);
     assert.equal(invalid.diagnostics[0]?.code, 'DLMAN0001');
     assert.equal(invalid.diagnostics[0]?.pointer, '/manifestVersion');
-    console.log(`Engine Analyzer acceptance passed: ${exported.catalogHash}`);
+
+    const firstGraph = await client.dumpGraph(runtimeParams(3));
+    const secondGraph = await client.dumpGraph(runtimeParams(4));
+    assertSuccessfulRuntimeResult(firstGraph, 'graph');
+    assertSuccessfulRuntimeResult(secondGraph, 'graph');
+    assert.match(firstGraph.graph.graphHash, HASH_PATTERN);
+    assert.match(firstGraph.graph.variantFingerprint, HASH_PATTERN);
+    assert.equal(secondGraph.graph.graphHash, firstGraph.graph.graphHash,
+      'Identical production inputs must produce a stable graph hash.');
+    assert.equal(secondGraph.graph.variantFingerprint, firstGraph.graph.variantFingerprint,
+      'Identical production inputs must produce a stable graph variant fingerprint.');
+    assert.ok(firstGraph.graph.nodes.length > 0, 'Production graph must contain nodes.');
+    assert.ok(firstGraph.graph.edges.length > 0, 'Production graph must contain dependency edges.');
+    assert.ok(firstGraph.graph.executionOrder.length > 0, 'Production graph must contain execution order.');
+    assert.ok(firstGraph.graph.resources.length > 0, 'Production graph must contain resources.');
+    assert.ok(firstGraph.graph.events.length > 0, 'Production graph must contain access events.');
+    assert.ok(firstGraph.graph.nodes.some(node => node.kind === 'program'),
+      'Production graph must project resolved programs.');
+    assert.ok(firstGraph.graph.nodes.some(node => node.kind === 'command'),
+      'Production graph must project resolved commands.');
+
+    const firstVariant = await client.explainVariant({
+      ...runtimeParams(5),
+      programId: explainedProgramId
+    });
+    const secondVariant = await client.explainVariant({
+      ...runtimeParams(6),
+      programId: explainedProgramId
+    });
+    assertSuccessfulRuntimeResult(firstVariant, 'explanation');
+    assertSuccessfulRuntimeResult(secondVariant, 'explanation');
+    const explanation = firstVariant.explanation;
+    assert.equal(explanation.programId, explainedProgramId);
+    assert.match(explanation.variantFingerprint, HASH_PATTERN);
+    assert.equal(secondVariant.explanation.variantFingerprint, explanation.variantFingerprint,
+      'Identical production inputs must produce a stable program fingerprint.');
+    assert.ok(explanation.sourceFiles.length >= 1, 'Variant explanation must contain shader sources.');
+    assert.ok(explanation.defines.length > 0, 'Variant explanation must contain resolved defines.');
+    assert.ok(explanation.defines.every(define => define.source && typeof define.source.kind === 'string'),
+      'Every resolved define must report its source kind.');
+    assert.ok(explanation.defines.some(define =>
+      define.source.kind === 'option' && define.source.id === 'dawnlight:post/tone_mapping'),
+    'The production option-backed define must preserve option provenance.');
+    assert.ok(explanation.inputs.options.some(input =>
+      input.id === 'dawnlight:post/tone_mapping' && input.source === 'default'),
+    'Default option resolution must be visible in the explanation.');
+
+    const changedInputs = {
+      options: { 'dawnlight:post/tone_mapping': 'vivid' },
+      capabilities: {}
+    };
+    const changedGraph = await client.dumpGraph(runtimeParams(7, changedInputs));
+    assertSuccessfulRuntimeResult(changedGraph, 'graph');
+    assert.notEqual(changedGraph.graph.graphHash, firstGraph.graph.graphHash,
+      'A graph-affecting option override must change the graph snapshot hash.');
+    assert.notEqual(changedGraph.graph.variantFingerprint, firstGraph.graph.variantFingerprint,
+      'A graph-affecting option override must change the graph variant fingerprint.');
+
+    const changedVariant = await client.explainVariant({
+      ...runtimeParams(8, changedInputs),
+      programId: explainedProgramId
+    });
+    assertSuccessfulRuntimeResult(changedVariant, 'explanation');
+    assert.notEqual(changedVariant.explanation.variantFingerprint, explanation.variantFingerprint,
+      'An option-backed define change must change the program fingerprint.');
+    assert.ok(changedVariant.explanation.inputs.options.some(input =>
+      input.id === 'dawnlight:post/tone_mapping' && input.value === 'vivid' && input.source === 'request'),
+    'The changed option must report request provenance.');
+
+    const missingProgram = await client.explainVariant({
+      ...runtimeParams(9),
+      programId: 'dawnlight:acceptance/missing-program'
+    });
+    assert.ok(missingProgram, 'Production Analyzer did not return the missing-program domain failure.');
+    assert.equal(missingProgram.compatible, true);
+    assert.equal(missingProgram.success, false);
+    assert.equal(missingProgram.explanation, undefined);
+    assert.equal(missingProgram.diagnostics[0]?.code, 'DLGRAPH0003');
+    assert.equal(client.status.state, 'ready', 'A domain failure must keep the Analyzer usable.');
+
+    const recoveryGraph = await client.dumpGraph(runtimeParams(10));
+    assertSuccessfulRuntimeResult(recoveryGraph, 'graph');
+    assert.equal(recoveryGraph.graph.graphHash, firstGraph.graph.graphHash,
+      'The Analyzer must recover cleanly after a domain failure.');
+
+    console.log(
+      `Engine Analyzer acceptance passed: catalog=${exported.catalogHash} ` +
+      `graph=${firstGraph.graph.graphHash} program=${explainedProgramId} ` +
+      `variant=${explanation.variantFingerprint}`
+    );
   } finally {
     await client.shutdown();
   }

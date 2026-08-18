@@ -10,6 +10,12 @@ const { DawnlightCompletionService } = require('../packages/language-server/dist
 const { DawnlightFastDiagnosticService } = require('../packages/language-server/dist/diagnostics');
 const { resolveCatalogSnapshot } = require('../packages/language-server/dist/catalog');
 const { DawnlightAnalyzerClient } = require('../packages/language-server/dist/analyzerClient');
+const {
+  RuntimeSnapshotCache,
+  runtimeInputFingerprint,
+  renderRuntimeGraph,
+  renderVariantExplanation
+} = require('../packages/language-server/dist/runtimeAnalysis');
 
 const root = path.resolve(__dirname, '..');
 const thresholds = {
@@ -17,7 +23,11 @@ const thresholds = {
   incrementalFragmentRebuild: 300,
   warmCompletionP95: 50,
   fastDiagnostics: 250,
-  analyzerWarmResponse: 2000
+  analyzerWarmResponse: 2000,
+  runtimeFingerprintP95: 15,
+  runtimeGraphRenderP95: 100,
+  runtimeVariantRenderP95: 25,
+  runtimeCacheWarmP95: 1
 };
 
 function writeJson(workspace, relativePath, value) {
@@ -31,6 +41,119 @@ function percentile(values, fraction) {
   const sorted = [...values].sort((left, right) => left - right);
   const index = Math.min(sorted.length - 1, Math.ceil(sorted.length * fraction) - 1);
   return sorted[index];
+}
+
+function measure(iterations, operation) {
+  const values = [];
+  for (let index = 0; index < iterations; index += 1) {
+    const start = performance.now();
+    operation(index);
+    values.push(performance.now() - start);
+  }
+  return values;
+}
+
+function createRuntimeBenchmarkData(workspace) {
+  const nodeCount = 240;
+  const resourceCount = 80;
+  const nodes = Array.from({ length: nodeCount }, (_, index) => ({
+    id: `command:benchmark:pass:${index}`,
+    kind: index % 12 === 0 ? 'program' : 'command',
+    label: `Benchmark node ${index}`,
+    active: true,
+    order: index,
+    provenance: [{
+      kind: 'fragment',
+      file: 'manifest/pipeline.json',
+      pointer: `/passes/${index % 24}`
+    }],
+    properties: [{ name: 'index', value: index }]
+  }));
+  const resources = Array.from({ length: resourceCount }, (_, index) => ({
+    id: `example:resource-${index}`,
+    nodeId: nodes[index].id,
+    kind: index % 4 === 0 ? 'buffer' : 'texture',
+    lifetime: { firstOrder: index, lastOrder: index + 80, persistent: false, history: false },
+    provenance: [{ kind: 'fragment', file: 'manifest/pipeline.json', pointer: `/resources/${index}` }]
+  }));
+  const edges = nodes.slice(1).map((node, index) => ({
+    id: `edge:${index}`,
+    kind: 'sequence',
+    from: nodes[index].id,
+    to: node.id,
+    order: index
+  }));
+  const events = nodes.map((node, index) => ({
+    id: `event:${index}`,
+    kind: index % 3 === 0 ? 'write' : 'read',
+    nodeId: node.id,
+    resourceId: resources[index % resourceCount].id,
+    order: index,
+    provenance: [{ kind: 'runtime', description: 'benchmark access' }]
+  }));
+  const graphResult = {
+    catalogHash: 'c'.repeat(64),
+    manifestHash: 'd'.repeat(64),
+    graph: {
+      contractVersion: 1,
+      graphHash: 'a'.repeat(64),
+      variantFingerprint: 'b'.repeat(64),
+      nodes,
+      edges,
+      executionOrder: nodes.map(node => node.id),
+      events,
+      resources,
+      bindings: [],
+      drawBuffers: [],
+      hazards: []
+    }
+  };
+  const variantResult = {
+    catalogHash: 'c'.repeat(64),
+    manifestHash: 'd'.repeat(64),
+    explanation: {
+      contractVersion: 1,
+      programId: 'example:main',
+      kind: 'graphics',
+      active: true,
+      compileMode: 'legacyCustom',
+      variantFingerprint: 'e'.repeat(64),
+      sourceFiles: [
+        { stage: 'vertex', file: 'shaders/main.vsh', provenance: { kind: 'shader', file: 'shaders/main.vsh' } },
+        { stage: 'fragment', file: 'shaders/main.psh', provenance: { kind: 'shader', file: 'shaders/main.psh' } }
+      ],
+      inputs: {
+        options: Array.from({ length: 48 }, (_, index) => ({
+          id: `example:option-${index}`,
+          value: index,
+          source: 'default',
+          provenance: { kind: 'fragment', file: 'manifest/pipeline.json', pointer: `/options/${index}` }
+        })),
+        capabilities: []
+      },
+      defines: Array.from({ length: 72 }, (_, index) => ({
+        name: `BENCHMARK_${index}`,
+        defined: true,
+        value: index,
+        source: { kind: 'option', id: `example:option-${index % 48}`, inputValue: index }
+      })),
+      includes: Array.from({ length: 24 }, (_, index) => ({
+        file: `shaders/include/benchmark-${index}.glsl`,
+        includedBy: 'shaders/main.psh',
+        provenance: { kind: 'shader', file: `shaders/include/benchmark-${index}.glsl` }
+      })),
+      graphNodeIds: nodes.slice(0, 24).map(node => node.id)
+    }
+  };
+  const project = {
+    documents: Array.from({ length: 32 }, (_, index) => ({
+      absolutePath: path.join(workspace, 'manifest', `runtime-${index}.json`),
+      source: index % 4 === 0 ? 'overlay' : 'disk',
+      version: index,
+      text: `${JSON.stringify({ index, values: Array.from({ length: 64 }, (_, value) => value) })}\n`
+    }))
+  };
+  return { graphResult, variantResult, project };
 }
 
 async function main() {
@@ -151,6 +274,37 @@ process.stdin.on('data', chunk => {
     const analyzerWarmResponse = performance.now() - analyzerStart;
     await analyzer.shutdown();
 
+    const runtimeData = createRuntimeBenchmarkData(workspace);
+    const fingerprintOperation = index => runtimeInputFingerprint(
+      workspace,
+      catalog.hash,
+      index % 2 === 0 ? 'graph' : 'variant',
+      index % 2 === 0 ? undefined : 'example:main',
+      { options: { 'example:option-0': index % 3 }, capabilities: {} },
+      runtimeData.project
+    );
+    fingerprintOperation(0);
+    renderRuntimeGraph(runtimeData.graphResult, workspace);
+    renderVariantExplanation(runtimeData.variantResult, workspace);
+    const runtimeFingerprint = measure(80, fingerprintOperation);
+    const runtimeGraphRender = measure(30,
+      () => renderRuntimeGraph(runtimeData.graphResult, workspace));
+    const runtimeVariantRender = measure(60,
+      () => renderVariantExplanation(runtimeData.variantResult, workspace));
+    const runtimeCache = new RuntimeSnapshotCache(64);
+    const runtimeCacheUri = 'dawnlight-graph:/benchmark.md?key=benchmark';
+    runtimeCache.set({
+      uri: runtimeCacheUri,
+      operation: 'graph',
+      packRoot: workspace,
+      fingerprint: 'f'.repeat(64),
+      content: renderRuntimeGraph(runtimeData.graphResult, workspace),
+      result: runtimeData.graphResult
+    });
+    const runtimeCacheWarm = measure(2000, () => {
+      if (!runtimeCache.get(runtimeCacheUri)) throw new Error('Runtime cache lost its warm entry.');
+    });
+
     const updatedFragment = {
       options: [...options, { id: 'example:option-096', type: 'boolean', default: true }],
       resources,
@@ -171,21 +325,33 @@ process.stdin.on('data', chunk => {
       warmCompletionP50: percentile(warmCompletion, 0.50),
       warmCompletionP95: percentile(warmCompletion, 0.95),
       fastDiagnostics,
-      analyzerWarmResponse
+      analyzerWarmResponse,
+      runtimeFingerprintP95: percentile(runtimeFingerprint, 0.95),
+      runtimeGraphRenderP95: percentile(runtimeGraphRender, 0.95),
+      runtimeVariantRenderP95: percentile(runtimeVariantRender, 0.95),
+      runtimeCacheWarmP95: percentile(runtimeCacheWarm, 0.95)
     };
-    console.log('Dawnlight V2 benchmark (temporary synthetic pack)');
+    console.log('Dawnlight V3-1 benchmark (temporary synthetic pack)');
     console.log(`initial discovery/index: ${measurements.initialDiscoveryIndex.toFixed(1)} ms`);
     console.log(`incremental fragment rebuild: ${measurements.incrementalFragmentRebuild.toFixed(1)} ms`);
     console.log(`warm completion p50/p95: ${measurements.warmCompletionP50.toFixed(1)} / ${measurements.warmCompletionP95.toFixed(1)} ms`);
     console.log(`fast diagnostics: ${measurements.fastDiagnostics.toFixed(1)} ms`);
     console.log(`Analyzer warm response: ${measurements.analyzerWarmResponse.toFixed(1)} ms`);
+    console.log(`runtime input fingerprint p95: ${measurements.runtimeFingerprintP95.toFixed(1)} ms`);
+    console.log(`runtime graph Markdown render p95: ${measurements.runtimeGraphRenderP95.toFixed(1)} ms`);
+    console.log(`runtime variant Markdown render p95: ${measurements.runtimeVariantRenderP95.toFixed(1)} ms`);
+    console.log(`runtime snapshot cache warm get p95: ${measurements.runtimeCacheWarmP95.toFixed(3)} ms`);
 
     const checks = [
       ['initialDiscoveryIndex', measurements.initialDiscoveryIndex, thresholds.initialDiscoveryIndex],
       ['incrementalFragmentRebuild', measurements.incrementalFragmentRebuild, thresholds.incrementalFragmentRebuild],
       ['warmCompletionP95', measurements.warmCompletionP95, thresholds.warmCompletionP95],
       ['fastDiagnostics', measurements.fastDiagnostics, thresholds.fastDiagnostics],
-      ['analyzerWarmResponse', measurements.analyzerWarmResponse, thresholds.analyzerWarmResponse]
+      ['analyzerWarmResponse', measurements.analyzerWarmResponse, thresholds.analyzerWarmResponse],
+      ['runtimeFingerprintP95', measurements.runtimeFingerprintP95, thresholds.runtimeFingerprintP95],
+      ['runtimeGraphRenderP95', measurements.runtimeGraphRenderP95, thresholds.runtimeGraphRenderP95],
+      ['runtimeVariantRenderP95', measurements.runtimeVariantRenderP95, thresholds.runtimeVariantRenderP95],
+      ['runtimeCacheWarmP95', measurements.runtimeCacheWarmP95, thresholds.runtimeCacheWarmP95]
     ];
     const failures = checks.filter(([, actual, limit]) => actual > limit);
     if (failures.length > 0) {
