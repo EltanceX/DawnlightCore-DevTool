@@ -36,7 +36,7 @@ npm test                         93 passed, 0 failed
 npm run lint                     passed
 DAWNLIGHT_BENCHMARK_STRICT=1 npm run benchmark  passed
 DAWNLIGHT_ENGINE_REPO=... npm run test:engine-analyzer passed
-npm run package                  passed (0.2.0, 19 files, 308.51 KB)
+npm run package                  passed (0.2.0, 19 files, 308.72 KB)
 DAWNLIGHT_RUN_VSCODE_TEST=1 npm run test:vscode passed
 DAWNLIGHT_RUN_VSIX_TEST=1 npm run test:vsix passed
 ```
@@ -45,11 +45,11 @@ Benchmark 结果（临时合成 pack）：
 
 | 指标 | 实测 | 目标 | 结果 |
 | --- | ---: | ---: | --- |
-| 初次 discovery/index | 约 22.6 ms | < 1000 ms | 通过 |
-| 增量 fragment rebuild | 约 18.3 ms | < 300 ms | 通过 |
-| warm completion p95 | 约 0.6 ms | < 50 ms | 通过 |
-| fast diagnostics | 约 2.7 ms | < 250 ms | 通过 |
-| Analyzer warm response | 约 0.2 ms | < 2000 ms | 通过 |
+| 初次 discovery/index | 约 22.4 ms | < 1000 ms | 通过 |
+| 增量 fragment rebuild | 约 15.6 ms | < 300 ms | 通过 |
+| warm completion p95 | 约 0.2 ms | < 50 ms | 通过 |
+| fast diagnostics | 约 3.7 ms | < 250 ms | 通过 |
+| Analyzer warm response | 约 0.3 ms | < 2000 ms | 通过 |
 | runtime input fingerprint p95 | 约 0.3 ms | < 50 ms | 通过 |
 | runtime Graph Markdown render p95 | 约 5.4 ms | < 250 ms | 通过 |
 | runtime Variant Markdown render p95 | 约 0.6 ms | < 250 ms | 通过 |
@@ -59,7 +59,7 @@ Benchmark 结果（临时合成 pack）：
 
 ```text
 dawnlight-shader-pack-tools-0.2.0.vsix
-19 files, 308.51 KB
+19 files, 308.72 KB
 ```
 
 真实 VS Code smoke 和 `DAWNLIGHT_RUN_VSIX_TEST=1 npm run test:vsix` 均已通过。Windows 上 VS Code 退出时偶尔留下锁定的临时 profile，这是测试清理警告，不影响 exit code 和安装验收结果。

@@ -167,9 +167,9 @@ commit 已记录如下。
 | --- | --- | --- |
 | 全量单元/LSP | `npm test` | 通过，93/93 |
 | 静态检查 | `npm run lint` | 通过，28 个 CommonJS、50 个 JSON |
-| 性能门槛 | `$env:DAWNLIGHT_BENCHMARK_STRICT='1'; npm run benchmark` | 通过；fingerprint p95 0.3 ms、Graph render p95 5.4 ms、Variant render p95 0.6 ms、cache get p95 <0.001 ms |
+| 性能门槛 | `$env:DAWNLIGHT_BENCHMARK_STRICT='1'; npm run benchmark` | 通过；fingerprint p95 0.3 ms、Graph render p95 3.6 ms、Variant render p95 0.6 ms、cache get p95 <0.001 ms |
 | 生产 Analyzer | `$env:DAWNLIGHT_ENGINE_REPO='<engine>'; npm run test:engine-analyzer` | 通过；sidecar commit `8803a507`，真实 Dawnlight_v3.1，Catalog `b5898125…`、graph `e4bcf778…`、variant `79cee6c9…` |
-| VSIX 构建 | `npm run package` | 通过；`dawnlight-shader-pack-tools-0.2.0.vsix`，19 files，308.51 KB |
+| VSIX 构建 | `npm run package` | 通过；`dawnlight-shader-pack-tools-0.2.0.vsix`，19 files，308.72 KB |
 | 真实 VS Code | `$env:DAWNLIGHT_RUN_VSCODE_TEST='1'; npm run test:vscode` | 通过，exit 0 |
 | 干净 profile VSIX | `$env:DAWNLIGHT_RUN_VSIX_TEST='1'; npm run test:vsix` | 通过，exit 0；测试进程退出时报告一个 Windows 临时 profile 锁定警告，不影响安装/验收 |
 | diff 卫生 | `git diff --check` | 通过（提交前） |
