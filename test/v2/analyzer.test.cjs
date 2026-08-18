@@ -49,7 +49,7 @@ function handle(message) {
     send({ jsonrpc: '2.0', id: message.id, result: {
       snapshot: catalog,
       catalogHash: catalog.hash,
-      serverSupportedVersions: [1],
+      serverSupportedVersions: mode === 'incompatible' ? [99] : [1],
       selectedVersion: mode === 'incompatible' ? undefined :
         (params.clientSupportedVersions && params.clientSupportedVersions.includes(1) ? 1 : undefined),
       compatible: mode !== 'incompatible' &&
@@ -216,6 +216,19 @@ test('Language Server exposes Analyzer Catalog parity without replacing local Ca
   assert.equal(snapshot.analyzer.state, 'match');
   assert.equal(snapshot.source, 'bundled');
   await harness.sendRequest(LSP_METHODS.restartAnalyzer, {});
+});
+
+test('Language Server reports an unconfigured Analyzer as unavailable', async t => {
+  const { harness } = await LspTestHarness.start(serverPath, {
+    clientProtocolVersion: CONTRACT_VERSIONS.languageServerProtocol,
+    catalogSnapshotVersions: [CONTRACT_VERSIONS.catalogSnapshot]
+  });
+  t.after(async () => {
+    if (!harness.hasExited()) await harness.shutdown();
+  });
+  const status = await harness.sendRequest(LSP_METHODS.analyzerCatalog, {});
+  assert.equal(status.state, 'unavailable');
+  assert.match(status.message, /not configured/i);
 });
 
 test('Language Server surfaces Analyzer Catalog mismatch and incompatible negotiation', async t => {

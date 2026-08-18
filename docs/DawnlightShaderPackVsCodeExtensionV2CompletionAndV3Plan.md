@@ -2,7 +2,7 @@
 
 更新日期：2026-08-17  
 当前发布版本：`0.2.0`  
-当前提交：`420254b Release V2 as 0.2.0 with benchmark`
+当前提交：`dd69d48 Document V3-0 Catalog parity acceptance`
 
 ## 1. 结论
 
@@ -29,29 +29,30 @@
 
 ## 3. 当前验收结果
 
-最近一次本地验证：
+最近一次本地验证（V3-0 parity slice）：
 
 ```text
-npm test                         73 passed, 0 failed
+npm test                         83 passed, 0 failed
 npm run lint                     passed
 DAWNLIGHT_BENCHMARK_STRICT=1 npm run benchmark  passed
+npm run catalog:validate         passed
 ```
 
 Benchmark 结果（临时合成 pack）：
 
 | 指标 | 实测 | 目标 | 结果 |
 | --- | ---: | ---: | --- |
-| 初次 discovery/index | 9.7 ms | < 1000 ms | 通过 |
-| 增量 fragment rebuild | 11.1 ms | < 300 ms | 通过 |
-| warm completion p95 | 0.2 ms | < 50 ms | 通过 |
-| fast diagnostics | 2.5 ms | < 250 ms | 通过 |
-| Analyzer warm response | 0.3 ms | < 2000 ms | 通过 |
+| 初次 discovery/index | 约 24.0 ms | < 1000 ms | 通过 |
+| 增量 fragment rebuild | 约 12.8 ms | < 300 ms | 通过 |
+| warm completion p95 | 约 0.4 ms | < 50 ms | 通过 |
+| fast diagnostics | 约 2.7 ms | < 250 ms | 通过 |
+| Analyzer warm response | 约 0.3 ms | < 2000 ms | 通过 |
 
 `0.2.0` VSIX 已生成并通过：
 
 ```text
 dawnlight-shader-pack-tools-0.2.0.vsix
-15 files, approximately 274 KB
+17 files, approximately 283 KB
 ```
 
 真实 VS Code smoke 和 `DAWNLIGHT_RUN_VSIX_TEST=1 npm run test:vsix` 均已通过。Windows 上 VS Code 退出时偶尔留下锁定的临时 profile，这是测试清理警告，不影响 exit code 和安装验收结果。

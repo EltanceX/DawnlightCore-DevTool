@@ -120,6 +120,28 @@ test('Catalog source contract rejects unknown top-level and host fields', () => 
     error.errors.filter(item => item.code === 'unknown-property').length === 2);
 });
 
+test('Catalog source contract rejects nested collection, format, and reference fields', () => {
+  const base = sourceRegistrationFromSnapshot(bundledSnapshot());
+  const invalid = {
+    ...base,
+    supportedFormats: { ...base.supportedFormats, future: [1] },
+    registrations: {
+      ...base.registrations,
+      futureCollection: [],
+      semantics: [{
+        ...base.registrations.semantics[0],
+        requiredServices: [{ id: 'dawnlight:frame_uniforms', version: 1, future: true }]
+      }]
+    }
+  };
+  assert.throws(() => exportCatalogSnapshot(invalid), error =>
+    error.code === 'CATALOG_SOURCE_INVALID' &&
+    error.errors.some(item => item.path === 'supportedFormats.future') &&
+    error.errors.some(item => item.path === 'registrations.futureCollection') &&
+    error.errors.some(item => item.path.endsWith('.future'))
+  );
+});
+
 test('Catalog exporter uses the same canonical ordering as the TypeScript contract', () => {
   const source = {
     sourceContractVersion: 1,
@@ -134,4 +156,18 @@ test('Catalog exporter uses the same canonical ordering as the TypeScript contra
   const exported = exportCatalogSnapshot(source);
   const contracts = require('../../packages/contracts/dist');
   assert.equal(exported.hash, contracts.computeCatalogSnapshotHash(exported));
+});
+
+test('Catalog Snapshot parser rejects nested unknown fields and duplicate format versions', () => {
+  const snapshot = bundledSnapshot();
+  const withUnknownHost = { ...snapshot, host: { ...snapshot.host, futureField: true } };
+  withUnknownHost.hash = require('../../packages/contracts/dist').computeCatalogSnapshotHash(withUnknownHost);
+  assert.throws(() => require('../../packages/contracts/dist').parseCatalogSnapshot(withUnknownHost), /not part of the contract/);
+
+  const withDuplicateFormat = {
+    ...snapshot,
+    supportedFormats: { ...snapshot.supportedFormats, manifest: [3, 3] }
+  };
+  withDuplicateFormat.hash = require('../../packages/contracts/dist').computeCatalogSnapshotHash(withDuplicateFormat);
+  assert.throws(() => require('../../packages/contracts/dist').parseCatalogSnapshot(withDuplicateFormat), /non-negative integers/);
 });

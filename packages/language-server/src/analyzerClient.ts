@@ -158,6 +158,14 @@ export class DawnlightAnalyzerClient {
     }
 
     const clientSupportedVersions = params.clientSupportedVersions ?? DEFAULT_CATALOG_SNAPSHOT_VERSIONS;
+    if (!Array.isArray(clientSupportedVersions) ||
+      clientSupportedVersions.some(version => !Number.isInteger(version) || version < 0) ||
+      new Set(clientSupportedVersions).size !== clientSupportedVersions.length) {
+      this.lastError = 'Analyzer Catalog request contains invalid supported versions.';
+      this.state = this.process ? 'ready' : (this.options.analyzerPath ? 'offline' : 'disabled');
+      this.publishState();
+      return undefined;
+    }
     const expectedCatalogHash = params.expectedCatalogHash ?? this.options.catalogHash;
     let raw: unknown;
     try {
@@ -185,6 +193,13 @@ export class DawnlightAnalyzerClient {
       // compatible response, however, must select the contract we requested.
       if (result.compatible && result.selectedVersion !== CONTRACT_VERSIONS.catalogSnapshot) {
         throw new Error('Analyzer Catalog contract negotiation failed.');
+      }
+      if (result.compatible && !clientSupportedVersions.includes(result.selectedVersion!)) {
+        throw new Error('Analyzer Catalog selected a version the client did not advertise.');
+      }
+      if (!result.compatible && result.serverSupportedVersions?.some(version =>
+        clientSupportedVersions.includes(version))) {
+        throw new Error('Analyzer Catalog reported incompatible despite a common supported version.');
       }
       if (expectedCatalogHash && result.catalogHash.toLowerCase() !== expectedCatalogHash.toLowerCase()) {
         throw new Error('Analyzer Catalog hash does not match the active Catalog.');
@@ -218,7 +233,15 @@ export class DawnlightAnalyzerClient {
   }
 
   private ensureStarted(): Promise<void> {
-    if (this.process && this.state === 'ready') return Promise.resolve();
+    // A single sidecar serves initialize, Catalog, and validation requests.
+    // Validation changes the state to `validating`, but must not make a
+    // concurrent request spawn a second process.  `startPromise` covers the
+    // startup window; once ready/validating, the existing process is already
+    // usable.
+    if (this.process && this.startPromise) return this.startPromise;
+    if (this.process && (this.state === 'ready' || this.state === 'validating')) {
+      return Promise.resolve();
+    }
     if (this.restartCount > this.options.restartLimit) {
       return Promise.reject(new Error('Analyzer automatic restart limit was reached.'));
     }

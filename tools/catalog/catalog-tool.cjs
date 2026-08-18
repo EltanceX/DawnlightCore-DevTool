@@ -37,6 +37,8 @@ const ENTRY_FIELDS = Object.freeze({
 });
 
 const ARRAY_FIELDS = Object.freeze(new Set(['targets', 'requiredCapabilities', 'requiredServices']));
+const FORMAT_FIELDS = Object.freeze(new Set(['manifest', 'sourceComposition', 'settingsUi']));
+const REFERENCE_FIELDS = Object.freeze(new Set(['id', 'version']));
 const SNAPSHOT_FIELDS = Object.freeze(new Set([
   'contractVersion',
   'host',
@@ -113,8 +115,16 @@ function assertVersion(value, pathName, errors) {
 
 function normalizeReference(value, pathName, errors) {
   if (typeof value === 'string' && value.length > 0) return value;
-  if (isRecord(value) && typeof value.id === 'string' && Number.isInteger(value.version) && value.version >= 0) {
-    return `${value.id}@${value.version}`;
+  if (isRecord(value)) {
+    for (const key of Object.keys(value)) {
+      if (!REFERENCE_FIELDS.has(key)) {
+        addError(errors, `${pathName}.${key}`, 'is not part of the {id, version} reference.', 'unknown-property');
+      }
+    }
+    if (typeof value.id === 'string' && value.id.length > 0 &&
+      Number.isInteger(value.version) && value.version >= 0) {
+      return `${value.id}@${value.version}`;
+    }
   }
   addError(errors, pathName, 'must be a non-empty string or an {id, version} reference.');
   return undefined;
@@ -140,6 +150,11 @@ function normalizeStringArray(value, pathName, errors) {
 function normalizeFormats(value, errors) {
   const result = {};
   if (!assertObject(value, 'supportedFormats', errors)) return result;
+  for (const key of Object.keys(value)) {
+    if (!FORMAT_FIELDS.has(key)) {
+      addError(errors, `supportedFormats.${key}`, 'is not part of the source-registration contract.', 'unknown-property');
+    }
+  }
   for (const field of ['manifest', 'sourceComposition', 'settingsUi']) {
     const values = value[field];
     if (!Array.isArray(values)) {
@@ -219,8 +234,15 @@ function normalizeEntry(value, collection, index, errors) {
   return result;
 }
 
-function normalizeCollections(registrations, errors) {
+function normalizeCollections(registrations, errors, strictKeys = true) {
   const result = {};
+  if (strictKeys) {
+    for (const key of Object.keys(registrations)) {
+      if (!COLLECTIONS.includes(key)) {
+        addError(errors, `registrations.${key}`, 'is not part of the source-registration contract.', 'unknown-property');
+      }
+    }
+  }
   for (const collection of COLLECTIONS) {
     const values = registrations[collection] === undefined ? [] : registrations[collection];
     if (!Array.isArray(values)) {
@@ -383,7 +405,7 @@ function normalizeSourceRegistration(source) {
   const supportedFormats = normalizeFormats(source.supportedFormats, errors);
   const registrations = source.registrations === undefined ? source : source.registrations;
   if (!assertObject(registrations, 'source.registrations', errors)) throwSourceErrors(errors);
-  const collections = normalizeCollections(registrations, errors);
+  const collections = normalizeCollections(registrations, errors, source.registrations !== undefined);
   const limits = source.limits === undefined ? {} : source.limits;
   if (!assertObject(limits, 'source.limits', errors)) {
     throwSourceErrors(errors);

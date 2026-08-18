@@ -313,17 +313,22 @@ async function refreshAnalyzerCatalog(): Promise<ReturnType<typeof analyzerCatal
     });
   if (!result) {
     const lastError = analyzerClient.status.lastError;
-    const state: DawnlightAnalyzerCatalogParityState = lastError &&
-      /method\s+(not\s+found|unknown)|not\s+implemented/i.test(lastError)
+    const state: DawnlightAnalyzerCatalogParityState = !analyzerClient.status.path
       ? 'unavailable'
-      : 'invalid';
+      : lastError && /method\s+(not\s+found|unknown)|not\s+implemented/i.test(lastError)
+        ? 'unavailable'
+        : 'invalid';
     analyzerCatalogStatus = {
       state,
       expectedHash,
-      message: lastError ?? 'Analyzer did not return a Catalog snapshot.'
+      message: lastError ?? (!analyzerClient.status.path
+        ? 'Analyzer is not configured; using the active local Catalog.'
+        : 'Analyzer did not return a Catalog snapshot.')
     };
     if (state === 'unavailable') {
-      connection.console.info('Dawnlight Analyzer does not expose getCatalog; using the active local Catalog.');
+      connection.console.info(analyzerClient.status.path
+        ? 'Dawnlight Analyzer does not expose getCatalog; using the active local Catalog.'
+        : 'Dawnlight Analyzer is not configured; using the active local Catalog.');
     } else {
       connection.console.warn(`Dawnlight Analyzer Catalog export was invalid: ${analyzerCatalogStatus.message}`);
     }

@@ -89,11 +89,13 @@
     },
     "versionArray": {
       "type": "array",
-      "items": { "$ref": "#/$defs/version" }
+      "items": { "$ref": "#/$defs/version" },
+      "uniqueItems": true
     },
     "stringArray": {
       "type": "array",
-      "items": { "type": "string" }
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
     },
     "stageTemplate": {
       "allOf": [{ "$ref": "#/$defs/entry" }]

@@ -168,8 +168,47 @@ const ENTRY_COLLECTIONS = [
   'resourceFormats'
 ] as const;
 
+const SNAPSHOT_FIELDS = new Set([
+  'contractVersion',
+  'host',
+  'supportedFormats',
+  ...ENTRY_COLLECTIONS,
+  'limits',
+  'hash'
+]);
+const HOST_FIELDS = new Set(['id', 'displayName', 'version', 'build']);
+const FORMAT_FIELDS = new Set(['manifest', 'sourceComposition', 'settingsUi']);
+const ENTRY_FIELDS = new Set([
+  'id',
+  'version',
+  'description',
+  'since',
+  'deprecated',
+  'valueKind',
+  'requiredServices',
+  'requiredCapabilities',
+  'targets',
+  'phase',
+  'command',
+  'components',
+  'bytesPerPixel',
+  'depth',
+  'filterable',
+  'renderable'
+]);
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function assertNoUnknownProperties(
+  value: Record<string, unknown>,
+  allowed: ReadonlySet<string>,
+  field: string
+): void {
+  for (const key of Object.keys(value)) {
+    if (!allowed.has(key)) throw new Error(`Catalog ${field}.${key} is not part of the contract.`);
+  }
 }
 
 function assertString(value: unknown, field: string): asserts value is string {
@@ -185,7 +224,7 @@ function assertNumber(value: unknown, field: string): asserts value is number {
 }
 
 function assertStringArray(value: unknown, field: string): asserts value is string[] {
-  if (!Array.isArray(value) || value.some(item => typeof item !== 'string')) {
+  if (!Array.isArray(value) || value.some(item => typeof item !== 'string' || item.length === 0)) {
     throw new Error(`Catalog ${field} must be an array of strings.`);
   }
 }
@@ -195,6 +234,7 @@ function validateEntries(value: unknown, collection: string): void {
   const seen = new Set<string>();
   for (const entry of value) {
     if (!isRecord(entry)) throw new Error(`Catalog ${collection} contains a non-object entry.`);
+    assertNoUnknownProperties(entry, ENTRY_FIELDS, `${collection} entry`);
     assertString(entry.id, `${collection}.id`);
     assertNumber(entry.version, `${collection}.version`);
     if (!Number.isInteger(entry.version) || entry.version < 0) {
@@ -229,24 +269,31 @@ function validateEntries(value: unknown, collection: string): void {
 
 export function parseCatalogSnapshot(value: unknown): CatalogSnapshot {
   if (!isRecord(value)) throw new Error('Catalog snapshot must be an object.');
+  assertNoUnknownProperties(value, SNAPSHOT_FIELDS, 'snapshot');
   if (value.contractVersion !== CATALOG_SNAPSHOT_CONTRACT_VERSION) {
     throw new Error(`Unsupported Catalog snapshot contract version: ${String(value.contractVersion)}.`);
   }
   if (!isRecord(value.host)) throw new Error('Catalog host must be an object.');
+  assertNoUnknownProperties(value.host, HOST_FIELDS, 'host');
   assertString(value.host.id, 'host.id');
   assertString(value.host.displayName, 'host.displayName');
   assertString(value.host.version, 'host.version');
   if (value.host.build !== undefined) assertString(value.host.build, 'host.build');
   if (!isRecord(value.supportedFormats)) throw new Error('Catalog supportedFormats must be an object.');
+  assertNoUnknownProperties(value.supportedFormats, FORMAT_FIELDS, 'supportedFormats');
   for (const field of ['manifest', 'sourceComposition', 'settingsUi']) {
     const formats = value.supportedFormats[field];
-    if (!Array.isArray(formats) || formats.some(item => !Number.isInteger(item) || item < 0)) {
+    if (!Array.isArray(formats) || formats.some(item => !Number.isInteger(item) || item < 0) ||
+      new Set(formats).size !== formats.length) {
       throw new Error(`Catalog supportedFormats.${field} must be an array of non-negative integers.`);
     }
   }
   for (const collection of ENTRY_COLLECTIONS) validateEntries(value[collection], collection);
   if (!isRecord(value.limits)) throw new Error('Catalog limits must be an object.');
   assertString(value.hash, 'hash');
+  if (!/^[0-9a-f]{64}$/i.test(value.hash)) {
+    throw new Error('Catalog hash must be a 64-character hexadecimal SHA-256 value.');
+  }
   return value as unknown as CatalogSnapshot;
 }
 
