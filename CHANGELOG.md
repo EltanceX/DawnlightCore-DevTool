@@ -4,6 +4,7 @@
 
 - Added source-registration v1 schema, canonical exporter, strict parity diff, and a generated Dawnlight 3.1 engine fixture.
 - Added the Survivalcraft `ShaderPackCatalogExporter` adapter that reads live stage, service, semantic, EngineDraw, capability, and texture-format catalogs.
+- Added the production Survivalcraft `ShaderPackAnalyzer` sidecar with initialize/getCatalog/validatePack/shutdown, loader-backed DLMAN diagnostics, RFC 6901 pointers, and safe temporary overlays.
 - Added Analyzer `getCatalog` negotiation, canonical hash validation, explicit mismatch/incompatible states, and the `Dawnlight: Refresh Analyzer Catalog` command.
 
 ## 0.2.0 - V2

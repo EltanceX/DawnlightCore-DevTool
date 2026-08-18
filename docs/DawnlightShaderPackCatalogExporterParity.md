@@ -95,3 +95,27 @@ V3-0 同时冻结 `dawnlight/getCatalog`：
 
 这样可以先让作者检查“编辑器 Catalog 与引擎 Catalog 是否一致”，再进入
 V3-1 graph/variant 语义；任何 mismatch 都不能静默继续使用旧数据。
+
+## 生产 Analyzer sidecar
+
+外部引擎仓库的
+`tools/ShaderPackAnalyzer/ShaderPackAnalyzer.csproj` 是当前 V3-0 的生产协议
+实现。它复用 `ShaderPackManifestLoader`，而不是在 sidecar 中复制一份 Manifest
+parser：
+
+```powershell
+dotnet build tools/ShaderPackAnalyzer/ShaderPackAnalyzer.csproj -c Release
+dotnet run --project tools/ShaderPackAnalyzer -c Release -- --self-test
+```
+
+`--catalog FILE` 或 `DAWNLIGHT_CATALOG_PATH` 可载入 Snapshot 或
+source-registration；不提供时则从引擎运行时注册表生成 Snapshot。若需要与
+作者 bundled Snapshot 做完整 presentation parity，先用 Catalog exporter 的
+`--metadata` 生成 source-registration，再通过 `--catalog` 注入 sidecar。没有
+metadata 的 runtime Catalog 仍然是合法且可 hash 的权威注册集合，但会明确报告
+presentation 字段差异。
+
+`validatePack` 的 overlays 在临时目录中 materialize，原始 pack 不会被写入；
+路径越界、绝对路径、重复 overlay 和 reparse/symlink 会被拒绝。loader fatal
+errors 映射到 `DLMAN####`，并尽可能转换为 pack-relative 文件和 RFC 6901 pointer。
+复杂 graph/hazard、shader 编译和完整结构化 golden diagnostics 进入 V3-1/V3-2。

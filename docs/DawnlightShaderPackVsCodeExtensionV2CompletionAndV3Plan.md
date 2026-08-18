@@ -8,7 +8,7 @@
 
 仓库内 V2-0 至 V2-10 已全部完成，且已经合并到 `0.2.0` 发布线。V2 的目标是让 VS Code Language Server 建立稳定的 workspace/composition/symbol model，并在此之上提供动态补全、导航、快速诊断、Catalog authoring 和可选 Analyzer 边界；这些目标均有实现代码、单元/LSP 测试、验收文档和发布产物。
 
-需要明确的边界是：V2-10 完成的是 C# Analyzer 的协议客户端、生命周期、overlay 转发和权威诊断接入，不代表 Survivalcraft 引擎侧的生产 C# Analyzer 已经在本仓库实现。引擎 Catalog exporter、运行时 parity、shader-code 语义分析和 graph/variant 视图因此列为 V3，而不是 V2 未完成项。
+需要明确的边界是：V2-10 完成的是 C# Analyzer 的协议客户端、生命周期、overlay 转发和权威诊断接入；V3-0 进一步在外部 Survivalcraft 仓库加入了最小生产 C# Analyzer sidecar。shader-code 语义分析和 graph/variant 视图仍属于后续 V3 阶段，而不是 V2 未完成项。
 
 ## 2. V2 里程碑核对
 
@@ -32,7 +32,7 @@
 最近一次本地验证（V3-0 parity slice）：
 
 ```text
-npm test                         83 passed, 0 failed
+npm test                         86 passed, 0 failed
 npm run lint                     passed
 DAWNLIGHT_BENCHMARK_STRICT=1 npm run benchmark  passed
 npm run catalog:validate         passed
@@ -42,11 +42,11 @@ Benchmark 结果（临时合成 pack）：
 
 | 指标 | 实测 | 目标 | 结果 |
 | --- | ---: | ---: | --- |
-| 初次 discovery/index | 约 24.0 ms | < 1000 ms | 通过 |
-| 增量 fragment rebuild | 约 12.8 ms | < 300 ms | 通过 |
-| warm completion p95 | 约 0.4 ms | < 50 ms | 通过 |
-| fast diagnostics | 约 2.7 ms | < 250 ms | 通过 |
-| Analyzer warm response | 约 0.3 ms | < 2000 ms | 通过 |
+| 初次 discovery/index | 约 26.7 ms | < 1000 ms | 通过 |
+| 增量 fragment rebuild | 约 8.5 ms | < 300 ms | 通过 |
+| warm completion p95 | 约 0.2 ms | < 50 ms | 通过 |
+| fast diagnostics | 约 2.3 ms | < 250 ms | 通过 |
+| Analyzer warm response | 约 0.2 ms | < 2000 ms | 通过 |
 
 `0.2.0` VSIX 已生成并通过：
 
@@ -61,10 +61,10 @@ dawnlight-shader-pack-tools-0.2.0.vsix
 
 以下能力不是 V2 发布阻塞项，统一进入 V3：
 
-- Survivalcraft 引擎侧生产 C# Analyzer 的实现、发布和 parity fixtures；
+- Survivalcraft 引擎侧生产 C# Analyzer 的完整规则、发布和全量 parity fixtures；
 - 从引擎/Mod 注册集合自动导出 Catalog，并与 bundled snapshot 做 hash/registration parity；
 - Catalog 文件和配置的 live reload；
-- `getCatalog`、`dumpGraph`、`explainVariant` 的 Analyzer 请求及对应 LSP/虚拟文档；
+- `dumpGraph`、`explainVariant` 的 Analyzer 请求及对应 LSP/虚拟文档（`getCatalog` 已在 V3-0 完成）；
 - shader source 的 include、uniform、binding、stage interface 和 variant 语义分析；
 - pass/resource graph Webview、变体解释视图和交互式修复；
 - 平台自包含 sidecar、Marketplace 发布和跨平台 VSIX 矩阵。
@@ -78,14 +78,15 @@ V3 的主题应从“理解 JSON pack”转向“理解引擎实际运行结果�
 先建立可信数据源，否则后续 graph 和 shader 诊断都会建立在手工 Catalog 上。
 
 当前进度（2026-08-18）：Catalog source-registration v1、引擎侧生产 exporter、
-Node canonical exporter/parity、Analyzer `getCatalog` 和 LSP parity 状态已经完成
-第一 slice；生产 C# Analyzer 的 `validatePack` 规则接入仍是下一子阶段。详细验收见
+Node canonical exporter/parity、生产 Analyzer sidecar、Analyzer `getCatalog` 和
+LSP parity 状态已经完成 V3-0 基础闭环；完整 DLMAN 规则和 graph 解析仍是后续阶段。
+详细验收见
 `docs/DawnlightShaderPackVsCodeExtensionV3M0Acceptance.md`。
 
 - 在 Survivalcraft/ShaderTest 侧实现 Catalog exporter，导出 host/version/build、formats、stage templates、services、semantics、draw providers、capabilities、resource formats 和 limits；
 - 为 exporter 和 TypeScript `CatalogSnapshot` 建立 canonical hash 与 registration parity 测试；
 - 实现 Analyzer sidecar 的 `getCatalog`，验证 catalog hash，不匹配时明确降级；
-- 将 `validatePack` 的生产规则、诊断 code、JSON Pointer 和 overlay 行为与 fixture 做 golden snapshot；
+- 已接入 `validatePack` 的生产 loader、基础诊断 code、JSON Pointer 和安全 overlay；完整 DLMAN 规则与 golden snapshot 继续扩展；
 - 明确 .NET runtime/self-contained、Windows x64 首发和 sidecar 路径发现策略。
 
 验收重点：同一份真实 Dawnlight v3.1 pack 同时通过 engine Analyzer、TypeScript fast diagnostics 和 Catalog contract；Catalog 改变可被识别且不会静默使用旧数据。
@@ -163,7 +164,7 @@ V3 不建议一开始开发 Webview 或大规模 UI。先锁定真实 Catalog、
 - [x] 真实引擎 Catalog exporter 生成合法、可复现的 source-registration，并由共享工具生成可 hash Snapshot；
 - [x] bundled/external Catalog 与引擎注册集合通过 strict parity golden test；
 - [x] Analyzer `getCatalog` contract、hash 校验、版本协商和明确降级状态已冻结；
-- [ ] 生产 Analyzer 可完成 initialize、getCatalog、validatePack，并返回稳定 DLMAN code/pointer；
+- [x] 生产 Analyzer 可完成 initialize、getCatalog、validatePack，并返回稳定 DLMAN code/pointer；
 - [x] 客户端 valid/invalid/overlay/stale/timeout/crash 与 parity fixture 通过；
-- [ ] `npm test`、VS Code smoke、VSIX acceptance 和 benchmark strict 在最终 sidecar 接入后再次锁定；
+- [x] `npm test`、VS Code smoke、VSIX acceptance 和 benchmark strict 在 sidecar 接入后再次锁定；
 - [ ] V3-1 所需的 graph/variant contract 已冻结并有最小样例。

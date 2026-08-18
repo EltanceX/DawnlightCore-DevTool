@@ -25,7 +25,7 @@ external Snapshot with `dawnlight.shaderPack.catalog.path`; invalid or
 incompatible files fall back to the bundled Dawnlight 3.1 Catalog after a
 Language Server restart.
 
-Path Rename updates confirmed JSON references only; it never moves shader, asset, fragment, or Settings files. V2 Catalog diagnostics and optional Analyzer integration are included in `0.2.0`. V3-0 now adds the source-registration v1 Catalog exporter/parity tool, a production-engine exporter adapter, and the optional Analyzer `getCatalog` parity check; production `validatePack`, shader-code semantics, graph/variant views and live Catalog reload remain later V3 slices.
+Path Rename updates confirmed JSON references only; it never moves shader, asset, fragment, or Settings files. V2 Catalog diagnostics and optional Analyzer integration are included in `0.2.0`. V3-0 now adds the source-registration v1 Catalog exporter/parity tool, a production-engine exporter adapter, the production `ShaderPackAnalyzer` sidecar boundary, and the optional Analyzer `getCatalog` parity check; complete DLMAN rules, shader-code semantics, graph/variant views and live Catalog reload remain later V3 slices.
 
 ## Local development
 
@@ -42,6 +42,21 @@ node .\tools\catalog\catalog-tool.cjs parity `
   .\fixtures\catalog\dawnlight-3.1.engine-source-registration.json `
   .\catalogs\dawnlight-3.1.catalog.json
 ```
+
+The production sidecar is built from the external Survivalcraft repository:
+
+```powershell
+dotnet build tools\ShaderPackAnalyzer\ShaderPackAnalyzer.csproj -c Release
+dotnet run --project tools\ShaderPackAnalyzer -c Release -- --self-test
+```
+
+Set `dawnlight.shaderPack.analyzer.path` to the resulting `.dll` (the Language
+Server starts `.dll` paths through `dotnet`). Use `--catalog` or
+`DAWNLIGHT_CATALOG_PATH` when the sidecar should load a metadata-enriched
+Snapshot/source-registration; otherwise it captures the live runtime Catalog.
+
+For an end-to-end production-sidecar check, set `DAWNLIGHT_ENGINE_REPO` to the
+engine repository and run `npm run test:engine-analyzer`.
 
 The generated VSIX can be installed from VS Code with **Extensions: Install from VSIX...**.
 

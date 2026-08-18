@@ -43,6 +43,7 @@
     "test:unit": "npm run build && node --test test/schema.test.cjs test/completion.test.cjs test/file-match.test.cjs test/snippet.test.cjs test/v2/contracts.test.cjs test/v2/catalog.test.cjs test/v2/language-server.test.cjs test/v2/workspace-discovery.test.cjs test/v2/language-server-workspace.test.cjs test/v2/composition.test.cjs test/v2/symbol-index.test.cjs test/v2/dynamic-completion.test.cjs test/v2/navigation.test.cjs test/v2/diagnostics.test.cjs test/v2/catalog-diagnostics.test.cjs test/v2/analyzer.test.cjs test/v3/catalog-parity.test.cjs",
     "test:vscode": "npm run build && node test/run-vscode.cjs",
     "test:vsix": "node test/run-vsix-acceptance.cjs",
+    "test:engine-analyzer": "npm run build && node test/run-engine-analyzer-acceptance.cjs",
     "test:all": "npm run test:unit && npm run test:vscode && npm run test:vsix"
   },
   "devDependencies": {
