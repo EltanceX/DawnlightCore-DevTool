@@ -4,10 +4,14 @@ import {
   ANALYZER_METHODS,
   CONTRACT_VERSIONS,
   DEFAULT_ANALYZER_PROTOCOL_VERSIONS,
+  DEFAULT_CATALOG_SNAPSHOT_VERSIONS,
   DawnlightAnalyzerInitializeResult,
+  DawnlightAnalyzerGetCatalogParams,
+  DawnlightAnalyzerGetCatalogResult,
   DawnlightAnalyzerStatus,
   DawnlightAnalyzerValidatePackParams,
-  DawnlightAnalyzerValidatePackResult
+  DawnlightAnalyzerValidatePackResult,
+  parseDawnlightAnalyzerGetCatalogResult
 } from '@dawnlight/contracts';
 
 interface AnalyzerClientOptions {
@@ -36,8 +40,23 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function asError(value: unknown): Error {
-  if (isRecord(value) && typeof value.message === 'string') return new Error(value.message);
+  if (isRecord(value) && typeof value.message === 'string') {
+    const error = new Error(value.message);
+    if (typeof value.code === 'number' || typeof value.code === 'string') {
+      (error as Error & { code?: number | string }).code = value.code;
+    }
+    return error;
+  }
   return new Error('Analyzer returned an unknown JSON-RPC error.');
+}
+
+function isMethodNotFound(error: unknown): boolean {
+  if (!isRecord(error) && !(error instanceof Error)) return false;
+  const code = (error as Error & { code?: number | string }).code;
+  const message = error instanceof Error ? error.message :
+    (typeof (error as Record<string, unknown>).message === 'string'
+      ? String((error as Record<string, unknown>).message) : '');
+  return code === -32601 || /method\s+(not\s+found|unknown)|not\s+implemented/i.test(message);
 }
 
 export class DawnlightAnalyzerClient {
@@ -115,6 +134,68 @@ export class DawnlightAnalyzerClient {
       return result;
     } catch (error) {
       if (this.process) this.recordFailure(error);
+      return undefined;
+    }
+  }
+
+  /**
+   * Ask the optional Analyzer for its authoritative Catalog snapshot.
+   *
+   * Catalog export is deliberately best-effort: an older sidecar may not
+   * implement the method, and an invalid/mismatched snapshot must never take
+   * down the Language Server's local Catalog features.  Transport failures
+   * still use the normal failure/restart policy, while contract/hash failures
+   * leave a healthy sidecar running and return `undefined`.
+   */
+  async getCatalog(
+    params: DawnlightAnalyzerGetCatalogParams = {}
+  ): Promise<DawnlightAnalyzerGetCatalogResult | undefined> {
+    if (!this.options.analyzerPath) return undefined;
+    try {
+      await this.ensureStarted();
+    } catch {
+      return undefined;
+    }
+
+    const clientSupportedVersions = params.clientSupportedVersions ?? DEFAULT_CATALOG_SNAPSHOT_VERSIONS;
+    const expectedCatalogHash = params.expectedCatalogHash ?? this.options.catalogHash;
+    let raw: unknown;
+    try {
+      raw = await this.request<unknown>(ANALYZER_METHODS.getCatalog, {
+        clientSupportedVersions,
+        ...(expectedCatalogHash ? { expectedCatalogHash } : {})
+      });
+    } catch (error) {
+      // JSON-RPC -32601 is a normal capability downgrade for V2 sidecars.
+      // Keep the process alive so validatePack remains available.
+      if (isMethodNotFound(error)) {
+        this.lastError = errorMessage(error);
+        this.state = 'ready';
+        this.publishState();
+        return undefined;
+      }
+      if (this.process) this.recordFailure(error);
+      return undefined;
+    }
+
+    try {
+      const result = parseDawnlightAnalyzerGetCatalogResult(raw);
+      if (!result.compatible || result.selectedVersion !== CONTRACT_VERSIONS.catalogSnapshot) {
+        throw new Error('Analyzer Catalog contract negotiation failed.');
+      }
+      if (expectedCatalogHash && result.catalogHash.toLowerCase() !== expectedCatalogHash.toLowerCase()) {
+        throw new Error('Analyzer Catalog hash does not match the active Catalog.');
+      }
+      this.lastError = undefined;
+      this.state = 'ready';
+      this.publishState();
+      return result;
+    } catch (error) {
+      // A malformed or stale export is a non-fatal Analyzer protocol issue;
+      // callers can continue using the bundled/local Catalog.
+      this.lastError = errorMessage(error);
+      this.state = this.process ? 'ready' : (this.options.analyzerPath ? 'offline' : 'disabled');
+      this.publishState();
       return undefined;
     }
   }

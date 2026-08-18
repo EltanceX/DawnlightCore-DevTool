@@ -19,6 +19,7 @@ function createFakeAnalyzer(t, options = {}) {
   const script = String.raw`
 let input = '';
 const mode = ${JSON.stringify(mode)};
+const catalog = ${JSON.stringify(options.catalog || null)};
 function send(message) {
   const body = JSON.stringify(message);
   process.stdout.write('Content-Length: ' + Buffer.byteLength(body, 'utf8') + '\r\n\r\n' + body);
@@ -28,6 +29,26 @@ function handle(message) {
     send({ jsonrpc: '2.0', id: message.id, result: {
       protocolVersion: 1, serverSupportedVersions: [1], selectedVersion: 1, compatible: true,
       analyzerVersion: 'fake'
+    }});
+    return;
+  }
+  if (message.method === 'dawnlight/getCatalog') {
+    if (mode === 'unknown') {
+      send({ jsonrpc: '2.0', id: message.id, error: { code: -32601, message: 'Method not found' } });
+      return;
+    }
+    if (!catalog) {
+      send({ jsonrpc: '2.0', id: message.id, error: { code: -32601, message: 'dawnlight/getCatalog is not implemented' } });
+      return;
+    }
+    const params = message.params || {};
+    send({ jsonrpc: '2.0', id: message.id, result: {
+      snapshot: catalog,
+      catalogHash: catalog.hash,
+      serverSupportedVersions: [1],
+      selectedVersion: params.clientSupportedVersions && params.clientSupportedVersions.includes(1) ? 1 : undefined,
+      compatible: Boolean(params.clientSupportedVersions && params.clientSupportedVersions.includes(1)),
+      analyzerVersion: 'fake-catalog'
     }});
     return;
   }
@@ -123,6 +144,38 @@ test('Analyzer client negotiates stdio framing and degrades after timeout', asyn
   assert.equal(offline, undefined);
   assert.equal(timedOut.status.state, 'offline');
   await timedOut.shutdown();
+});
+
+test('Analyzer getCatalog validates contract/hash and tolerates older sidecars', async t => {
+  const catalog = JSON.parse(fs.readFileSync(path.join(root, 'catalogs', 'dawnlight-3.1.catalog.json'), 'utf8'));
+  const analyzerPath = createFakeAnalyzer(t, { catalog });
+  const client = new DawnlightAnalyzerClient({
+    analyzerPath,
+    catalogHash: catalog.hash,
+    timeoutMs: 1000,
+    restartLimit: 0
+  });
+  const result = await client.getCatalog({
+    clientSupportedVersions: [1],
+    expectedCatalogHash: catalog.hash
+  });
+  assert.ok(result);
+  assert.equal(result.snapshot.contractVersion, 1);
+  assert.equal(result.catalogHash, catalog.hash);
+  assert.equal(result.selectedVersion, 1);
+  assert.equal(result.compatible, true);
+  assert.equal(client.status.state, 'ready');
+
+  const mismatch = await client.getCatalog({ expectedCatalogHash: '0'.repeat(64) });
+  assert.equal(mismatch, undefined);
+  assert.equal(client.status.state, 'ready');
+  await client.shutdown();
+
+  const oldAnalyzerPath = createFakeAnalyzer(t, { mode: 'unknown' });
+  const oldClient = new DawnlightAnalyzerClient({ analyzerPath: oldAnalyzerPath, timeoutMs: 1000, restartLimit: 0 });
+  assert.equal(await oldClient.getCatalog(), undefined);
+  assert.equal(oldClient.status.state, 'ready');
+  await oldClient.shutdown();
 });
 
 test('save triggers authoritative diagnostics with overlays and drops stale responses', async t => {
