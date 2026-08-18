@@ -82,6 +82,11 @@ test('dumpGraph parser validates refs, hashes, and stale-safe response envelope'
     serverSupportedVersions: [1], selectedVersion: 1,
     diagnostics: [{ severity: 'error', code: 'DLGRAPH0001', message: 'incompatible' }]
   }), /compatible|selectedVersion/);
+  assert.throws(() => contracts.parseDawnlightAnalyzerDumpGraphResult({
+    requestVersion: 7, catalogHash: hash, compatible: false, success: false,
+    serverSupportedVersions: [1], diagnostics: [{ severity: 'error', code: 'DLMAN0001', message: 'failed' }],
+    explanation: {}
+  }), /not part of the contract/);
 });
 
 test('variant explanation parser preserves input/define provenance and domain errors', () => {

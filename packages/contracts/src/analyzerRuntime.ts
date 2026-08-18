@@ -866,11 +866,15 @@ function parseExplanation(value: unknown): DawnlightVariantExplanationPayload {
   return value as unknown as DawnlightVariantExplanationPayload;
 }
 
-function parseRuntimeResponseBase(value: unknown, field: string): DawnlightRuntimeResponseBase {
+function parseRuntimeResponseBase(
+  value: unknown,
+  field: string,
+  payloadField: 'graph' | 'explanation'
+): DawnlightRuntimeResponseBase {
   assertRecord(value, field);
   assertKnown(value, new Set([
     'requestVersion', 'catalogHash', 'manifestHash', 'compatible', 'success',
-    'serverSupportedVersions', 'selectedVersion', 'analyzerVersion', 'diagnostics', 'graph', 'explanation'
+    'serverSupportedVersions', 'selectedVersion', 'analyzerVersion', 'diagnostics', payloadField
   ]), field);
   assertInteger(value.requestVersion, `${field}.requestVersion`);
   assertHash(value.catalogHash, `${field}.catalogHash`);
@@ -918,7 +922,7 @@ function assertResponseNegotiation(base: DawnlightRuntimeResponseBase, contractV
 }
 
 export function parseDawnlightAnalyzerDumpGraphResult(value: unknown): DawnlightAnalyzerDumpGraphResult {
-  const base = parseRuntimeResponseBase(value, 'dumpGraph result');
+  const base = parseRuntimeResponseBase(value, 'dumpGraph result', 'graph');
   const record = value as Record<string, unknown>;
   const graph = record.graph === undefined ? undefined : parseGraphSnapshot(record.graph);
   assertResponseNegotiation(base, RUNTIME_GRAPH_CONTRACT_VERSION, graph, 'dumpGraph result');
@@ -926,7 +930,7 @@ export function parseDawnlightAnalyzerDumpGraphResult(value: unknown): Dawnlight
 }
 
 export function parseDawnlightAnalyzerExplainVariantResult(value: unknown): DawnlightAnalyzerExplainVariantResult {
-  const base = parseRuntimeResponseBase(value, 'explainVariant result');
+  const base = parseRuntimeResponseBase(value, 'explainVariant result', 'explanation');
   const record = value as Record<string, unknown>;
   const explanation = record.explanation === undefined ? undefined : parseExplanation(record.explanation);
   assertResponseNegotiation(base, VARIANT_EXPLAIN_CONTRACT_VERSION, explanation, 'explainVariant result');
