@@ -1,14 +1,14 @@
 # Dawnlight Shader Pack VS Code Extension V2 完成度与 V3 路线
 
-更新日期：2026-08-17  
-当前发布版本：`0.2.0`  
-当前提交：`dd69d48 Document V3-0 Catalog parity acceptance`
+更新日期：2026-08-18
+当前发布版本：`0.2.0`
+当前里程碑：V3-1 功能实现完成，发布级最终验收进行中
 
 ## 1. 结论
 
 仓库内 V2-0 至 V2-10 已全部完成，且已经合并到 `0.2.0` 发布线。V2 的目标是让 VS Code Language Server 建立稳定的 workspace/composition/symbol model，并在此之上提供动态补全、导航、快速诊断、Catalog authoring 和可选 Analyzer 边界；这些目标均有实现代码、单元/LSP 测试、验收文档和发布产物。
 
-需要明确的边界是：V2-10 完成的是 C# Analyzer 的协议客户端、生命周期、overlay 转发和权威诊断接入；V3-0 进一步在外部 Survivalcraft 仓库加入了最小生产 C# Analyzer sidecar。shader-code 语义分析和 graph/variant 视图仍属于后续 V3 阶段，而不是 V2 未完成项。
+需要明确的边界是：V2-10 完成的是 C# Analyzer 的协议客户端、生命周期、overlay 转发和权威诊断接入；V3-0 在外部 Survivalcraft 仓库加入生产 C# Analyzer sidecar 与 Catalog parity，V3-1 再把生产 resolver 的 runtime graph 和 program variant 结果接入编辑器。shader-code include/interface 语义分析和交互式 Graph Webview 仍属于后续 V3 阶段，而不是 V2 未完成项。
 
 ## 2. V2 里程碑核对
 
@@ -57,16 +57,19 @@ dawnlight-shader-pack-tools-0.2.0.vsix
 
 真实 VS Code smoke 和 `DAWNLIGHT_RUN_VSIX_TEST=1 npm run test:vsix` 均已通过。Windows 上 VS Code 退出时偶尔留下锁定的临时 profile，这是测试清理警告，不影响 exit code 和安装验收结果。
 
-## 4. V2 明确延期项
+V3-1 当前已通过 6 个 graph/variant 定向测试：4 个 contract/Schema 测试和 2 个 Analyzer client/LSP 集成测试。发布级 `npm test`、lint、benchmark、生产 sidecar、VS Code smoke、VSIX acceptance 的最终结果将在
+`docs/DawnlightShaderPackVsCodeExtensionV3M1Acceptance.md` 由主线验收后登记；本节不沿用 V3-0 数值冒充 V3-1 结果。
+
+## 4. V2 延期项在 V3 的状态
 
 以下能力不是 V2 发布阻塞项，统一进入 V3：
 
-- Survivalcraft 引擎侧生产 C# Analyzer 的完整规则、发布和全量 parity fixtures；
-- 从引擎/Mod 注册集合自动导出 Catalog，并与 bundled snapshot 做 hash/registration parity；
+- 已在 V3-0 完成从引擎/Mod 注册集合导出 Catalog、bundled snapshot 的 hash/registration parity 与生产 C# Analyzer 基础边界；
+- 已在 V3-1 完成 `dumpGraph`、`explainVariant`、LSP 编排、虚拟文档、graph hazard 诊断和基础 graph 导航；
+- Survivalcraft 引擎侧生产 C# Analyzer 的完整 DLMAN 规则、发布和全量 parity fixtures；
 - Catalog 文件和配置的 live reload；
-- `dumpGraph`、`explainVariant` 的 Analyzer 请求及对应 LSP/虚拟文档（`getCatalog` 已在 V3-0 完成）；
 - shader source 的 include、uniform、binding、stage interface 和 variant 语义分析；
-- pass/resource graph Webview、变体解释视图和交互式修复；
+- pass/resource graph Webview、variant 对比和交互式修复；
 - 平台自包含 sidecar、Marketplace 发布和跨平台 VSIX 矩阵。
 
 ## 5. V3 推荐目标
@@ -95,13 +98,25 @@ LSP parity 状态已经完成 V3-0 基础闭环；完整 DLMAN 规则和 graph �
 
 在 Analyzer 已可信后暴露真实执行图，而不是只根据 JSON 结构猜测。
 
-- 完成 `dawnlight/dumpGraph` 和 `dawnlight/explainVariant` 的请求/响应 contract、超时、取消、stale 和缓存；
-- 提供 `dawnlight-graph:`、`dawnlight-variant:` 只读虚拟文档；
-- 展示 pass 顺序、resource lifetime、draw buffers、texture/buffer binding、stage/service 依赖、capability/define 选择；
-- 将 Analyzer graph hazard 映射到 Problems、Definition、Hover 和相关位置；
-- 允许从 pass/program/resource 跳到 graph 节点，并保留 pack-local 语义导航。
+当前进度（2026-08-18）：功能范围已经实现，最终发布级验收结果待主线填写。
+Runtime Graph Snapshot v1 与 Program Variant Explanation v1 合同、生产 Analyzer
+resolver、LSP/VS Code 命令和只读视图形成闭环。详细合同见
+`docs/DawnlightShaderPackRuntimeGraphVariantContractV3M1.md`，验收记录见
+`docs/DawnlightShaderPackVsCodeExtensionV3M1Acceptance.md`。
+
+- `dawnlight/dumpGraph` 和 `dawnlight/explainVariant` 已实现严格请求/响应解析、独立版本协商、超时、标准取消、stale guard 和有界缓存；
+- 请求必须先通过 Analyzer/Language Server Catalog hash parity；不匹配时明确拒绝生成可能错误的运行时视图；
+- `Dawnlight: Open Runtime Graph` 和 `Dawnlight: Explain Program Variant` 打开 `dawnlight-graph:`、`dawnlight-variant:` 只读 Markdown；程序不唯一时通过 Quick Pick 选择；
+- graph 文档展示执行顺序、节点、resource lifetime、events、draw buffers、texture/buffer binding、依赖边、hazards、canonical JSON 和 DOT；variant 文档展示 source、resolved options/capabilities、defines、includes、active/inactive reason 和 graph node links；
+- Analyzer graph hazard 映射到独立 `dawnlight-analyzer-graph` Problems source，不覆盖 Schema、L0-L2 或保存后的 `dawnlight-analyzer` 诊断；
+- pack-local pass/program/resource Definition 与 Hover 可附加最新 graph 节点状态和跳转，同时保留既有语义导航；
+- overlay 文本、Catalog hash、输入参数、Analyzer process epoch 和 request generation 共同参与缓存/stale 判定，输入改变后旧虚拟 URI 不再返回内容。
 
 验收重点：对同一 pack 和 variant，graph 文档稳定、节点可跳转，Analyzer 错误只影响当前请求而不清空 L0-L2 诊断。
+
+V3-1 有意不实现交互式 Webview，也不在 TypeScript 侧重新解释 shader include。生产
+Analyzer 尚未提供 shader include 语义时，variant 的 `includes` 可以为空；这不是拿路径
+级信息猜测 include 关系，而是 V3-2 要补齐的明确合同边界。
 
 ### V3-2：Shader source 语义与接口分析（高优先级）
 
@@ -149,9 +164,9 @@ V2 只理解 shader 文件路径，V3 应理解 shader 和 Manifest 之间的接
 ## 6. 推荐实施顺序
 
 ```text
-V3-0 Catalog exporter + Analyzer parity
-  -> V3-1 dumpGraph/explainVariant + graph diagnostics
-  -> V3-2 shader source semantic index
+V3-0 Catalog exporter + Analyzer parity                         [done]
+  -> V3-1 dumpGraph/explainVariant + graph diagnostics         [implemented]
+  -> V3-2 shader source semantic index                         [next]
   -> V3-3 live reload + Code Actions + status/trace
   -> V3-4 graph/variant Webview
   -> V3-5 sidecar/platform packaging + scale/CI hardening
@@ -167,4 +182,39 @@ V3 不建议一开始开发 Webview 或大规模 UI。先锁定真实 Catalog、
 - [x] 生产 Analyzer 可完成 initialize、getCatalog、validatePack，并返回稳定 DLMAN code/pointer；
 - [x] 客户端 valid/invalid/overlay/stale/timeout/crash 与 parity fixture 通过；
 - [x] `npm test`、VS Code smoke、VSIX acceptance 和 benchmark strict 在 sidecar 接入后再次锁定；
-- [ ] V3-1 所需的 graph/variant contract 已冻结并有最小样例。
+- [x] V3-1 所需的 graph/variant contract 已冻结并有最小样例。
+
+## 8. V3-1 完成定义
+
+- [x] Runtime Graph 与 Variant Explain 使用相互独立的 v1 contract、严格 JSON Schema、版本协商和 domain-failure envelope；
+- [x] 生产 Analyzer 通过实际 runtime resolver 输出执行节点、边、events、resources、bindings、draw buffers、hazards、variant inputs 和 defines，而不是由编辑器猜测；
+- [x] Catalog parity gate、unsaved overlays、`$/cancelRequest`、timeout/crash 降级、request/process/input stale guards 和有界 immutable cache 已接入；
+- [x] 两个 VS Code 命令、程序 Quick Pick、Markdown/JSON/DOT 虚拟文档和过期 URI 失效行为已接入；
+- [x] graph hazard 独立诊断、Manifest Definition/graph Definition 合并和 runtime Hover 已接入，不清空 L0-L2/Schema/保存后 Analyzer 诊断；
+- [x] 4 个 contract/Schema 与 2 个 Analyzer client/LSP 定向测试已通过；
+- [ ] 完整 `npm test`、lint、benchmark strict、生产 sidecar、VS Code smoke、VSIX acceptance 结果待主线最终验收后写入 V3M1 验收文档。
+
+因此 V3-1 的功能实现已完成；最后一项是发布级证据登记，不再扩张本里程碑的
+功能范围。若最终矩阵发现回归，应修复后再把最后一项勾选，而不是把失败隐藏为
+“Analyzer 可选”。
+
+## 9. 下一步：V3-2 推荐切片
+
+V3-2 应先建立可增量、可降级的 shader source semantic index，再增加跨 Manifest
+诊断。推荐按以下顺序推进：
+
+1. 冻结 shader 文件、include edge、declaration、stage interface 和 diagnostic 的
+   contract/code namespace；同时选定 Dawnlight 实际 GLSL/HLSL 方言与预处理边界；
+2. 实现 comments/string/preprocessor 安全的 include 与声明扫描器，建立文件级
+   snapshot、依赖 DAG、cycle/missing include 诊断和内容 hash 缓存；
+3. 将 program stage、resolved defines/variant inputs 与 shader snapshot 组合，逐步
+   校验 uniform、sampler/image、buffer、fragment output、compute local size 和
+   vertex/fragment interface；
+4. 增加 shader Definition、References、Hover；Rename 仅在符号无歧义且宏展开不会
+   改变含义时开放，否则明确拒绝；
+5. 建立 valid/invalid/cycle/macro/overlay/large-file fixtures，并为 warm incremental
+   parse、单文件失效范围和 Analyzer/TypeScript parity 设置性能与一致性门槛。
+
+V3-2 第一批验收应优先覆盖 include DAG、program-to-source 关联和 Manifest
+binding 对 shader declaration 的类型检查。复杂宏求值可作为后续小切片，但 parser
+失败不得阻塞 JSON/JSONC、Catalog、graph 或其他 pack 的编辑能力。

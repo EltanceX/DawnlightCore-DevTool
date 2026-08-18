@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased - V3-1 Runtime graph and variant explain
+
+- Added independently versioned Runtime Graph Snapshot v1 and Program Variant Explanation v1 contracts, strict parsers, JSON Schemas, canonical graph hashing, stable provenance and negotiation/domain-failure envelopes.
+- Added production Analyzer `dawnlight/dumpGraph` and `dawnlight/explainVariant` requests with option/capability inputs, unsaved overlays, standard cancellation, timeout/crash degradation and Catalog parity gating.
+- Added bounded immutable graph/variant snapshot caching with exact document-input fingerprints, Analyzer process/request-generation stale guards and pack-local invalidation.
+- Added readonly `dawnlight-graph:` and `dawnlight-variant:` Markdown documents with graph execution/resources/events/bindings/draw buffers/hazards, canonical JSON, DOT, variant inputs/defines/sources/includes and source links.
+- Added **Dawnlight: Open Runtime Graph** and **Dawnlight: Explain Program Variant** commands, including program Quick Pick when a unique program cannot be inferred.
+- Added `dawnlight-analyzer-graph` Problems diagnostics and runtime-aware Definition/Hover links without replacing Schema, fast or saved Analyzer diagnostics.
+
 ## Unreleased - V3-0 Catalog parity
 
 - Added source-registration v1 schema, canonical exporter, strict parity diff, and a generated Dawnlight 3.1 engine fixture.

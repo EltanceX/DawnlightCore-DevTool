@@ -25,7 +25,14 @@ external Snapshot with `dawnlight.shaderPack.catalog.path`; invalid or
 incompatible files fall back to the bundled Dawnlight 3.1 Catalog after a
 Language Server restart.
 
-Path Rename updates confirmed JSON references only; it never moves shader, asset, fragment, or Settings files. V2 Catalog diagnostics and optional Analyzer integration are included in `0.2.0`. V3-0 now adds the source-registration v1 Catalog exporter/parity tool, a production-engine exporter adapter, the production `ShaderPackAnalyzer` sidecar boundary, and the optional Analyzer `getCatalog` parity check; complete DLMAN rules, shader-code semantics, graph/variant views and live Catalog reload remain later V3 slices.
+Path Rename updates confirmed JSON references only; it never moves shader, asset, fragment, or Settings files. V2 Catalog diagnostics and optional Analyzer integration are included in `0.2.0`. V3-0 adds the source-registration v1 Catalog exporter/parity tool, a production-engine exporter adapter, the production `ShaderPackAnalyzer` sidecar boundary, and the optional Analyzer `getCatalog` parity check.
+
+V3-1 adds production runtime graph and program-variant inspection. After configuring a parity-compatible Analyzer, run **Dawnlight: Open Runtime Graph** or **Dawnlight: Explain Program Variant** from a pack JSON/JSONC document. The Language Server requests the engine-resolved snapshot and opens a readonly Markdown document:
+
+- `dawnlight-graph:` shows execution order, nodes, resources and lifetimes, events, bindings, draw buffers, edges, hazards, canonical JSON and DOT;
+- `dawnlight-variant:` shows the selected program, active state, source stages, resolved option/capability inputs, defines, include records, graph-node links and canonical JSON.
+
+Runtime graph hazards use the independent `dawnlight-analyzer-graph` diagnostic source. Definition and Hover from a known pass/program/resource can also link to the latest matching graph snapshot. Catalog mismatch, cancellation, timeout or Analyzer failure affects only the runtime request; existing Schema, index, navigation and L0-L2 diagnostics remain available. Interactive graph Webviews and GLSL/HLSL include/interface semantics remain later V3 work.
 
 ## Local development
 
@@ -57,6 +64,11 @@ Snapshot/source-registration; otherwise it captures the live runtime Catalog.
 
 For an end-to-end production-sidecar check, set `DAWNLIGHT_ENGINE_REPO` to the
 engine repository and run `npm run test:engine-analyzer`.
+
+Runtime graph and variant requests are gated on Analyzer/local Catalog parity.
+If the command reports a mismatch, run **Dawnlight: Refresh Analyzer Catalog**
+and make the configured Catalog match the one used by the sidecar before
+requesting another snapshot.
 
 The generated VSIX can be installed from VS Code with **Extensions: Install from VSIX...**.
 
