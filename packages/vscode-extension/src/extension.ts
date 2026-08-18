@@ -6,7 +6,13 @@ import {
   ServerOptions,
   TransportKind
 } from 'vscode-languageclient/node';
-import { CONTRACT_VERSIONS, LSP_METHODS } from '@dawnlight/contracts';
+import {
+  CONTRACT_VERSIONS,
+  DawnlightRuntimeViewCandidate,
+  DawnlightRuntimeViewRequest,
+  DawnlightRuntimeViewResult,
+  LSP_METHODS
+} from '@dawnlight/contracts';
 
 export interface DawnlightExtensionApi {
   getServerStatus(): {
@@ -19,19 +25,6 @@ export interface DawnlightExtensionApi {
 let client: LanguageClient | undefined;
 let running = false;
 
-interface RuntimeViewCandidate {
-  programId: string;
-  label?: string;
-  description?: string;
-  detail?: string;
-}
-
-interface RuntimeViewResult {
-  documentUri?: string;
-  candidates?: readonly RuntimeViewCandidate[];
-  message?: string;
-}
-
 interface RuntimeViewQuickPickItem extends vscode.QuickPickItem {
   programId: string;
 }
@@ -42,7 +35,7 @@ function errorMessage(error: unknown): string {
 
 function runtimeViewUnavailableMessage(
   viewName: 'runtime graph' | 'program variant',
-  result?: RuntimeViewResult
+  result?: DawnlightRuntimeViewResult
 ): string {
   const detail = result?.message?.trim();
   return `${viewName === 'runtime graph' ? 'Runtime graph' : 'Program variant explanation'} is unavailable. ${
@@ -50,7 +43,7 @@ function runtimeViewUnavailableMessage(
   }`;
 }
 
-function activeRuntimeViewParams(): { documentUri: string; position: { line: number; character: number } } | undefined {
+function activeRuntimeViewParams(): DawnlightRuntimeViewRequest | undefined {
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
     void vscode.window.showWarningMessage(
@@ -68,7 +61,7 @@ function activeRuntimeViewParams(): { documentUri: string; position: { line: num
 }
 
 async function openRuntimeViewDocument(
-  result: RuntimeViewResult | null | undefined,
+  result: DawnlightRuntimeViewResult | null | undefined,
   viewName: 'runtime graph' | 'program variant'
 ): Promise<boolean> {
   if (!result?.documentUri) {
@@ -83,7 +76,9 @@ async function openRuntimeViewDocument(
   return true;
 }
 
-function candidateQuickPickItems(candidates: readonly RuntimeViewCandidate[] | undefined): RuntimeViewQuickPickItem[] {
+function candidateQuickPickItems(
+  candidates: readonly DawnlightRuntimeViewCandidate[] | undefined
+): RuntimeViewQuickPickItem[] {
   if (!candidates) return [];
   return candidates
     .filter(candidate => typeof candidate.programId === 'string' && candidate.programId.length > 0)
@@ -221,7 +216,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Dawnli
     const params = activeRuntimeViewParams();
     if (!params) return;
     try {
-      const result = await client.sendRequest<RuntimeViewResult | null>(LSP_METHODS.dumpGraph, params);
+      const result = await client.sendRequest<DawnlightRuntimeViewResult | null>(LSP_METHODS.dumpGraph, params);
       await openRuntimeViewDocument(result, 'runtime graph');
     } catch (error) {
       void vscode.window.showErrorMessage(`Unable to open the Dawnlight runtime graph: ${errorMessage(error)}`);
@@ -235,7 +230,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Dawnli
     const params = activeRuntimeViewParams();
     if (!params) return;
     try {
-      let result = await client.sendRequest<RuntimeViewResult | null>(LSP_METHODS.explainVariant, params);
+      let result = await client.sendRequest<DawnlightRuntimeViewResult | null>(LSP_METHODS.explainVariant, params);
       if (!result?.documentUri) {
         const items = candidateQuickPickItems(result?.candidates);
         if (items.length > 0) {
@@ -245,7 +240,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Dawnli
             matchOnDetail: true
           });
           if (!selected) return;
-          result = await client.sendRequest<RuntimeViewResult | null>(LSP_METHODS.explainVariant, {
+          result = await client.sendRequest<DawnlightRuntimeViewResult | null>(LSP_METHODS.explainVariant, {
             ...params,
             programId: selected.programId
           });
