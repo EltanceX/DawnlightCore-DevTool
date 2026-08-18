@@ -45,7 +45,8 @@ Graph 与 Variant Explain 是两个相互独立的合同版本：
 ```
 
 `dumpGraph` 额外要求 `includeInactive: boolean`。`explainVariant` 额外要求
-`programId: string`。输入值只能是 string、finite number、boolean 或 null；
+`programId: string`，并可选携带同名 `includeInactive` 以控制其 graph node links。
+输入值只能是 string、finite number、boolean 或 null；
 不能通过协议传递 C# 类型、表达式或可执行内容。
 
 `requestVersion` 是客户端单调递增的请求世代，不是合同版本。客户端收到较旧
@@ -233,4 +234,3 @@ test/v3/runtime-contracts.test.cjs
 
 定向测试覆盖：版本常量、请求/响应协商、成功与 domain failure、hash 校验、
 悬空引用、路径穿越、provenance、define 来源和 JSON Schema 未知字段拒绝。
-

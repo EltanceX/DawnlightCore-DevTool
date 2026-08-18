@@ -78,6 +78,8 @@ export interface DawnlightAnalyzerDumpGraphParams extends DawnlightRuntimeGraphR
 
 export interface DawnlightAnalyzerExplainVariantParams extends DawnlightRuntimeGraphRequestBase {
   programId: string;
+  /** Reserved for parity with dumpGraph; controls whether inactive graph links are included. */
+  includeInactive?: boolean;
 }
 
 export type DawnlightRuntimeGraphNodeKind =
@@ -518,10 +520,13 @@ export function parseDawnlightAnalyzerExplainVariantParams(value: unknown): Dawn
   const record = value as Record<string, unknown>;
   assertKnown(record, new Set([
     'packRoot', 'catalogHash', 'requestVersion', 'overlays', 'clientSupportedVersions',
-    'expectedManifestHash', 'inputs', 'programId'
+    'expectedManifestHash', 'inputs', 'programId', 'includeInactive'
   ]), 'explainVariant params');
   assertString(record.programId, 'explainVariant params.programId');
-  return { ...base, programId: record.programId };
+  if (record.includeInactive !== undefined && typeof record.includeInactive !== 'boolean') {
+    throw new Error('Runtime explainVariant params.includeInactive must be boolean.');
+  }
+  return { ...base, programId: record.programId, includeInactive: record.includeInactive as boolean | undefined };
 }
 
 function parseProperty(value: unknown, field: string): DawnlightRuntimeProperty {

@@ -91,7 +91,7 @@ test('dumpGraph parser validates refs, hashes, and stale-safe response envelope'
 
 test('variant explanation parser preserves input/define provenance and domain errors', () => {
   const params = contracts.parseDawnlightAnalyzerExplainVariantParams({
-    ...(() => { const value = baseParams(); delete value.includeInactive; return value; })(),
+    ...baseParams(),
     programId: 'example:minimal/fullscreen'
   });
   assert.equal(params.programId, 'example:minimal/fullscreen');
