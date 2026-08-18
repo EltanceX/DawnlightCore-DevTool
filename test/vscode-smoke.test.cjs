@@ -176,6 +176,29 @@ suite('Dawnlight declarative schema smoke test', () => {
     assert.match(catalogDocument.getText(), /Catalog hash: `[0-9a-f]{64}`/);
   });
 
+  test('runtime graph and variant commands expose readonly virtual documents', async () => {
+    const commands = new Set(await vscode.commands.getCommands(true));
+    assert.ok(commands.has('dawnlight.openRuntimeGraph'));
+    assert.ok(commands.has('dawnlight.explainProgramVariant'));
+
+    const cases = [
+      {
+        uri: vscode.Uri.parse('dawnlight-graph:/missing-smoke-snapshot.md'),
+        expected: /graph snapshot is no longer available/i
+      },
+      {
+        uri: vscode.Uri.parse('dawnlight-variant:/missing-smoke-snapshot.md'),
+        expected: /variant snapshot is no longer available/i
+      }
+    ];
+    for (const item of cases) {
+      const document = await vscode.workspace.openTextDocument(item.uri);
+      assert.equal(document.languageId, 'markdown');
+      assert.match(document.getText(), item.expected);
+      assert.equal(document.isDirty, false);
+    }
+  });
+
   test('root completion exposes Manifest fields', async () => {
     const uri = fixtureUri('fixtures/completion/shaderpack.json');
     const document = await vscode.workspace.openTextDocument(uri);

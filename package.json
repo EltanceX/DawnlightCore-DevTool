@@ -113,6 +113,14 @@
       {
         "command": "dawnlight.refreshAnalyzerCatalog",
         "title": "Dawnlight: Refresh Analyzer Catalog"
+      },
+      {
+        "command": "dawnlight.openRuntimeGraph",
+        "title": "Dawnlight: Open Runtime Graph"
+      },
+      {
+        "command": "dawnlight.explainProgramVariant",
+        "title": "Dawnlight: Explain Program Variant"
       }
     ],
     "jsonValidation": [
