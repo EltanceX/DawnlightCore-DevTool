@@ -3,3 +3,4 @@ export * from './catalog';
 export * from './versions';
 export * from './workspace';
 export * from './analyzer';
+export * from './analyzerRuntime';

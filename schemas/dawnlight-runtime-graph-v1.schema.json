@@ -1,0 +1,163 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dawnlight.dev/schemas/runtime-graph-v1.schema.json",
+  "title": "Dawnlight Runtime Graph Snapshot v1",
+  "description": "Payload returned by dawnlight/dumpGraph. The graphHash is the SHA-256 of this payload with graphHash omitted.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contractVersion", "graphHash", "variantFingerprint", "nodes", "edges", "executionOrder", "events", "resources", "bindings", "drawBuffers", "hazards"],
+  "properties": {
+    "contractVersion": {"const": 1},
+    "graphHash": {"$ref": "#/$defs/hash"},
+    "variantFingerprint": {"$ref": "#/$defs/hash"},
+    "nodes": {"type": "array", "items": {"$ref": "#/$defs/node"}},
+    "edges": {"type": "array", "items": {"$ref": "#/$defs/edge"}},
+    "executionOrder": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "events": {"type": "array", "items": {"$ref": "#/$defs/event"}},
+    "resources": {"type": "array", "items": {"$ref": "#/$defs/resource"}},
+    "bindings": {"type": "array", "items": {"$ref": "#/$defs/binding"}},
+    "drawBuffers": {"type": "array", "items": {"$ref": "#/$defs/drawBuffer"}},
+    "hazards": {"type": "array", "items": {"$ref": "#/$defs/hazard"}}
+  },
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"},
+    "scalar": {"type": ["string", "number", "boolean", "null"]},
+    "stage": {"enum": ["vertex", "fragment", "geometry", "compute", "task", "mesh", "service", "host", "unknown"]},
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": {"enum": ["manifest", "fragment", "shader", "catalog", "generated", "runtime"]},
+        "file": {"type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.?(?:/|$)).+"},
+        "pointer": {"type": "string", "pattern": "^(?:|/(?:[^~]|~[01])*)$"},
+        "symbol": {"type": "string", "minLength": 1},
+        "description": {"type": "string", "minLength": 1}
+      }
+    },
+    "property": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "value"],
+      "properties": {"name": {"type": "string", "minLength": 1}, "value": {"$ref": "#/$defs/scalar"}}
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "label", "active"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "kind": {"enum": ["pass", "command", "program", "resource", "stage", "service", "drawProvider", "barrier", "external"]},
+        "label": {"type": "string", "minLength": 1},
+        "active": {"type": "boolean"},
+        "order": {"type": "integer", "minimum": 0},
+        "declaredId": {"type": "string", "minLength": 1},
+        "stage": {"$ref": "#/$defs/stage"},
+        "phase": {"type": "string", "minLength": 1},
+        "provenance": {"type": "array", "items": {"$ref": "#/$defs/provenance"}},
+        "properties": {"type": "array", "items": {"$ref": "#/$defs/property"}}
+      }
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "from", "to"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "kind": {"enum": ["sequence", "dependsOn", "invokes", "reads", "writes", "readWrites", "binds", "provides", "requires", "transitions", "commitsHistory", "targets"]},
+        "from": {"type": "string", "minLength": 1},
+        "to": {"type": "string", "minLength": 1},
+        "order": {"type": "integer", "minimum": 0},
+        "label": {"type": "string", "minLength": 1},
+        "provenance": {"type": "array", "items": {"$ref": "#/$defs/provenance"}}
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "nodeId", "order"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "kind": {"enum": ["command", "read", "write", "readWrite", "clear", "bind", "drawBuffer", "historyCommit", "barrier", "dispatch", "draw"]},
+        "nodeId": {"type": "string", "minLength": 1},
+        "order": {"type": "integer", "minimum": 0},
+        "resourceId": {"type": "string", "minLength": 1},
+        "bindingId": {"type": "string", "minLength": 1},
+        "drawBufferId": {"type": "string", "minLength": 1},
+        "provenance": {"type": "array", "items": {"$ref": "#/$defs/provenance"}}
+      }
+    },
+    "resource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "lifetime"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "nodeId": {"type": "string", "minLength": 1},
+        "kind": {"enum": ["texture", "buffer", "renderbuffer", "sampler", "image", "external"]},
+        "lifetime": {"$ref": "#/$defs/lifetime"},
+        "provenance": {"type": "array", "items": {"$ref": "#/$defs/provenance"}}
+      }
+    },
+    "lifetime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["persistent", "history"],
+      "properties": {
+        "firstOrder": {"type": "integer", "minimum": 0},
+        "lastOrder": {"type": "integer", "minimum": 0},
+        "persistent": {"type": "boolean"},
+        "history": {"type": "boolean"}
+      }
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "nodeId", "kind", "slot", "access"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "nodeId": {"type": "string", "minLength": 1},
+        "resourceId": {"type": "string", "minLength": 1},
+        "kind": {"enum": ["texture", "image", "buffer", "sampler", "uniform", "storage"]},
+        "slot": {"oneOf": [{"type": "string", "minLength": 1}, {"type": "integer", "minimum": 0}]},
+        "access": {"enum": ["read", "write", "readWrite"]},
+        "stage": {"$ref": "#/$defs/stage"},
+        "semantic": {"type": "string", "minLength": 1},
+        "provenance": {"type": "array", "items": {"$ref": "#/$defs/provenance"}}
+      }
+    },
+    "drawBuffer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "nodeId", "location", "enabled"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "nodeId": {"type": "string", "minLength": 1},
+        "location": {"type": "integer", "minimum": 0},
+        "resourceId": {"type": "string", "minLength": 1},
+        "semantic": {"type": "string", "minLength": 1},
+        "enabled": {"type": "boolean"},
+        "provenance": {"type": "array", "items": {"$ref": "#/$defs/provenance"}}
+      }
+    },
+    "related": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["message"],
+      "properties": {"message": {"type": "string", "minLength": 1}, "provenance": {"$ref": "#/$defs/provenance"}}
+    },
+    "hazard": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["severity", "code", "message", "nodeIds"],
+      "properties": {
+        "severity": {"enum": ["error", "warning", "information", "hint"]},
+        "code": {"type": "string", "pattern": "^DLGRAPH[0-9]{4}$"},
+        "message": {"type": "string", "minLength": 1},
+        "provenance": {"$ref": "#/$defs/provenance"},
+        "related": {"type": "array", "items": {"$ref": "#/$defs/related"}},
+        "nodeIds": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+      }
+    }
+  }
+}
