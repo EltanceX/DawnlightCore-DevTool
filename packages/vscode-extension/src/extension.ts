@@ -88,6 +88,21 @@ export async function activate(context: vscode.ExtensionContext): Promise<Dawnli
     if (!client) return;
     await client.sendRequest(LSP_METHODS.restartAnalyzer, {});
   }));
+  context.subscriptions.push(vscode.commands.registerCommand('dawnlight.refreshAnalyzerCatalog', async () => {
+    if (!client) return;
+    const status = await client.sendRequest(LSP_METHODS.analyzerCatalog, {});
+    if (status && typeof status === 'object' && status !== null && 'state' in status) {
+      const state = String((status as { state?: unknown }).state);
+      const message = (status as { message?: unknown }).message;
+      if (state === 'match') {
+        void vscode.window.showInformationMessage('Dawnlight Analyzer Catalog matches the active Catalog.');
+      } else {
+        void vscode.window.showWarningMessage(
+          `Dawnlight Analyzer Catalog status: ${state}${typeof message === 'string' ? ` (${message})` : ''}`
+        );
+      }
+    }
+  }));
 
   return Object.freeze({
     getServerStatus: () => ({

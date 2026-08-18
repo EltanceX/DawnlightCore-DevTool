@@ -180,7 +180,10 @@ export class DawnlightAnalyzerClient {
 
     try {
       const result = parseDawnlightAnalyzerGetCatalogResult(raw);
-      if (!result.compatible || result.selectedVersion !== CONTRACT_VERSIONS.catalogSnapshot) {
+      // A valid but incompatible Catalog is still returned to the caller so
+      // the Language Server can expose an explicit `incompatible` state.  A
+      // compatible response, however, must select the contract we requested.
+      if (result.compatible && result.selectedVersion !== CONTRACT_VERSIONS.catalogSnapshot) {
         throw new Error('Analyzer Catalog contract negotiation failed.');
       }
       if (expectedCatalogHash && result.catalogHash.toLowerCase() !== expectedCatalogHash.toLowerCase()) {

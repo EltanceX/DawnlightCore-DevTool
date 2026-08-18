@@ -18,6 +18,7 @@ test('contract versions are explicit and independent from the extension version'
     languageServerProtocol: 1,
     analyzerProtocol: 1,
     catalogSnapshot: 1,
+    catalogSourceRegistration: 1,
     schemaContract: 1,
     manifest: 3,
     sourceComposition: 1,
@@ -67,6 +68,7 @@ test('Analyzer protocol methods and Language Server control methods are stable',
   });
   assert.deepEqual(DEFAULT_ANALYZER_PROTOCOL_VERSIONS, [CONTRACT_VERSIONS.analyzerProtocol]);
   assert.equal(LSP_METHODS.validatePack, 'dawnlight/validatePack');
+  assert.equal(LSP_METHODS.analyzerCatalog, 'dawnlight/analyzerCatalog');
   assert.equal(LSP_METHODS.analyzerStatus, 'dawnlight/analyzerStatus');
   assert.equal(LSP_METHODS.restartAnalyzer, 'dawnlight/restartAnalyzer');
 });

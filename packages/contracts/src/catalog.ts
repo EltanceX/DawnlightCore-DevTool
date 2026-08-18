@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 
 export const CATALOG_SNAPSHOT_CONTRACT_VERSION = 1 as const;
+export const CATALOG_SOURCE_REGISTRATION_CONTRACT_VERSION = 1 as const;
 
 export type CatalogValueKind =
   | 'boolean'
@@ -97,6 +98,44 @@ export interface CatalogSnapshotPayload {
 
 export interface CatalogSnapshot extends CatalogSnapshotPayload {
   hash: string;
+}
+
+/** Registration reference accepted by the engine-side Catalog exporter. */
+export type CatalogSourceReference = string | {
+  id: string;
+  version: number;
+};
+
+/** Metadata shape emitted by a runtime registration before Snapshot hashing. */
+export interface CatalogSourceEntry extends CatalogEntryBase {
+  phase?: string;
+  targets?: readonly string[];
+  requiredCapabilities?: readonly CatalogSourceReference[];
+  requiredServices?: readonly CatalogSourceReference[];
+  valueKind?: CatalogValueKind;
+  command?: string;
+  components?: number;
+  bytesPerPixel?: number;
+  depth?: boolean;
+  filterable?: boolean;
+  renderable?: boolean;
+}
+
+export interface CatalogSourceRegistrations {
+  stageTemplates: readonly CatalogSourceEntry[];
+  services: readonly CatalogSourceEntry[];
+  semantics: readonly (CatalogSourceEntry & { valueKind: CatalogValueKind })[];
+  engineDrawProviders: readonly CatalogSourceEntry[];
+  capabilities: readonly CatalogSourceEntry[];
+  resourceFormats: readonly CatalogSourceEntry[];
+}
+
+export interface CatalogSourceRegistration {
+  sourceContractVersion: typeof CATALOG_SOURCE_REGISTRATION_CONTRACT_VERSION;
+  host: CatalogHost;
+  supportedFormats: CatalogSupportedFormats;
+  registrations: CatalogSourceRegistrations;
+  limits: Readonly<Record<string, unknown>>;
 }
 
 export interface CatalogSnapshotInfo {

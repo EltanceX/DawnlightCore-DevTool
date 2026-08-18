@@ -22,11 +22,14 @@ import {
   DawnlightWorkspaceCompositionSnapshot,
   DawnlightWorkspaceSnapshot,
   DawnlightInitializeOptions,
+  DawnlightAnalyzerCatalogParityState,
+  DawnlightAnalyzerCatalogStatus,
   LSP_METHODS,
   SERVER_CAPABILITIES
 } from '@dawnlight/contracts';
 import {
   DawnlightAnalyzerDiagnostic,
+  DawnlightAnalyzerGetCatalogResult,
   DawnlightAnalyzerOverlay,
   DawnlightAnalyzerStatus,
   DawnlightAnalyzerValidatePackResult
@@ -83,6 +86,10 @@ let initializedWorkspaceFolders: string[] = [];
 let validationOnSave = true;
 let analyzerRequestVersion = 0;
 const analyzerLatestRequests = new Map<string, number>();
+let analyzerCatalogStatus: DawnlightAnalyzerCatalogStatus = {
+  state: 'not-requested',
+  expectedHash: catalogState.hash
+};
 const analyzerClient = new DawnlightAnalyzerClient({
   onStderr: text => connection.console.warn(`Dawnlight Analyzer: ${text.trim()}`),
   onState: status => {
@@ -289,6 +296,68 @@ function analyzerOverlays(pack: ShaderPackProject, project: PackComposition | un
   return overlays;
 }
 
+function analyzerCatalogStatusSnapshot() {
+  return Object.freeze({ ...analyzerCatalogStatus });
+}
+
+async function refreshAnalyzerCatalog(): Promise<ReturnType<typeof analyzerCatalogStatusSnapshot>> {
+  const expectedHash = catalogState.hash;
+  // An empty expected hash asks the sidecar for its actual snapshot so the
+  // server can report a useful mismatch instead of turning it into a generic
+  // request failure. The client still validates the snapshot's own hash and
+  // contract before returning it.
+  const result: DawnlightAnalyzerGetCatalogResult | undefined =
+    await analyzerClient.getCatalog({
+      clientSupportedVersions: [CONTRACT_VERSIONS.catalogSnapshot],
+      expectedCatalogHash: ''
+    });
+  if (!result) {
+    const lastError = analyzerClient.status.lastError;
+    const state: DawnlightAnalyzerCatalogParityState = lastError &&
+      /method\s+(not\s+found|unknown)|not\s+implemented/i.test(lastError)
+      ? 'unavailable'
+      : 'invalid';
+    analyzerCatalogStatus = {
+      state,
+      expectedHash,
+      message: lastError ?? 'Analyzer did not return a Catalog snapshot.'
+    };
+    if (state === 'unavailable') {
+      connection.console.info('Dawnlight Analyzer does not expose getCatalog; using the active local Catalog.');
+    } else {
+      connection.console.warn(`Dawnlight Analyzer Catalog export was invalid: ${analyzerCatalogStatus.message}`);
+    }
+    return analyzerCatalogStatusSnapshot();
+  }
+  const actualHash = result.catalogHash;
+  const state: DawnlightAnalyzerCatalogParityState = !result.compatible
+    ? 'incompatible'
+    : actualHash.toLowerCase() === expectedHash.toLowerCase()
+      ? 'match'
+      : 'mismatch';
+  analyzerCatalogStatus = {
+    state,
+    expectedHash,
+    actualHash,
+    selectedVersion: result.selectedVersion,
+    analyzerVersion: result.analyzerVersion,
+    message: state === 'mismatch'
+      ? 'Analyzer Catalog hash differs from the active Language Server Catalog.'
+      : undefined
+  };
+  if (state === 'match') {
+    connection.console.info(`Dawnlight Analyzer Catalog parity confirmed (${actualHash}).`);
+  } else if (state === 'mismatch') {
+    connection.console.warn(analyzerCatalogStatus.message ?? 'Dawnlight Analyzer Catalog parity mismatch.');
+  } else {
+    connection.console.warn(
+      `Dawnlight Analyzer Catalog contract is incompatible with the active snapshot ` +
+      `(selected version ${result.selectedVersion ?? 'none'}).`
+    );
+  }
+  return analyzerCatalogStatusSnapshot();
+}
+
 async function validatePackWithAnalyzer(pack: ShaderPackProject): Promise<{
   accepted: boolean;
   requestVersion: number;
@@ -452,6 +521,10 @@ connection.onInitialize(params => {
     externalPath: options?.catalogPath,
     clientSupportedVersions: options?.catalogSnapshotVersions
   });
+  analyzerCatalogStatus = {
+    state: 'not-requested',
+    expectedHash: catalogState.hash
+  };
   validationOnSave = options?.validationOnSave ?? true;
   analyzerClient.configure({
     analyzerPath: options?.analyzerPath,
@@ -552,16 +625,22 @@ connection.onRequest(LSP_METHODS.catalogSnapshot, () => ({
   snapshot: catalogState.snapshot,
   requestedPath: catalogState.requestedPath,
   fallbackReason: catalogState.fallbackReason,
-  negotiation: catalogState.negotiation
+  negotiation: catalogState.negotiation,
+  analyzer: analyzerCatalogStatusSnapshot()
 }));
 connection.onRequest(LSP_METHODS.catalogDocument, params =>
   catalogNavigation.document((params as { uri: string }).uri));
 connection.onRequest(LSP_METHODS.analyzerStatus, () => analyzerClient.status);
+connection.onRequest(LSP_METHODS.analyzerCatalog, () => refreshAnalyzerCatalog());
 connection.onRequest(LSP_METHODS.restartAnalyzer, async () => {
   analyzerRequestVersion += 1;
   analyzerLatestRequests.clear();
   analyzerDiagnostics.clear();
   await analyzerClient.restart();
+  analyzerCatalogStatus = {
+    state: 'not-requested',
+    expectedHash: catalogState.hash
+  };
   for (const uri of knownDiagnosticUris) publishMergedDiagnostics(uri);
   return analyzerClient.status;
 });

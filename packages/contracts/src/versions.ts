@@ -2,6 +2,7 @@ export const CONTRACT_VERSIONS = Object.freeze({
   languageServerProtocol: 1,
   analyzerProtocol: 1,
   catalogSnapshot: 1,
+  catalogSourceRegistration: 1,
   schemaContract: 1,
   manifest: 3,
   sourceComposition: 1,

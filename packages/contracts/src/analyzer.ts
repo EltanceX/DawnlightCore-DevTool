@@ -53,6 +53,24 @@ export interface DawnlightAnalyzerGetCatalogResult {
   analyzerVersion?: string;
 }
 
+export type DawnlightAnalyzerCatalogParityState =
+  | 'not-requested'
+  | 'unavailable'
+  | 'match'
+  | 'mismatch'
+  | 'incompatible'
+  | 'invalid';
+
+/** Language Server status for the last explicit Analyzer Catalog parity check. */
+export interface DawnlightAnalyzerCatalogStatus {
+  state: DawnlightAnalyzerCatalogParityState;
+  expectedHash: string;
+  actualHash?: string;
+  selectedVersion?: number;
+  analyzerVersion?: string;
+  message?: string;
+}
+
 export interface DawnlightAnalyzerOverlay {
   path: string;
   version: number;
@@ -111,7 +129,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isVersionList(value: unknown): value is number[] {
-  return Array.isArray(value) && value.every(item => Number.isInteger(item) && item >= 0);
+  if (!Array.isArray(value) || value.some(item => !Number.isInteger(item) || item < 0)) return false;
+  return new Set(value).size === value.length;
 }
 
 /**
@@ -142,11 +161,19 @@ export function parseDawnlightAnalyzerGetCatalogResult(value: unknown): Dawnligh
   if (value.serverSupportedVersions !== undefined && !isVersionList(value.serverSupportedVersions)) {
     throw new Error('Analyzer getCatalog serverSupportedVersions must be an array of non-negative integers.');
   }
-  if (value.analyzerVersion !== undefined && typeof value.analyzerVersion !== 'string') {
+  if (value.analyzerVersion !== undefined &&
+    (typeof value.analyzerVersion !== 'string' || value.analyzerVersion.length === 0)) {
     throw new Error('Analyzer getCatalog analyzerVersion must be a string.');
+  }
+  if (value.serverSupportedVersions !== undefined && selectedVersion !== undefined &&
+    !value.serverSupportedVersions.includes(selectedVersion)) {
+    throw new Error('Analyzer getCatalog selectedVersion is not advertised by serverSupportedVersions.');
   }
   if (value.compatible && selectedVersion !== snapshot.contractVersion) {
     throw new Error('Analyzer getCatalog selectedVersion does not match the Catalog contract version.');
+  }
+  if (!value.compatible && selectedVersion !== undefined) {
+    throw new Error('Analyzer getCatalog must omit selectedVersion when incompatible.');
   }
   return {
     snapshot,

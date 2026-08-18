@@ -4,6 +4,7 @@ export const LSP_METHODS = Object.freeze({
   symbolSnapshot: 'dawnlight/symbolSnapshot',
   catalogSnapshot: 'dawnlight/catalogSnapshot',
   catalogDocument: 'dawnlight/catalogDocument',
+  analyzerCatalog: 'dawnlight/analyzerCatalog',
   validatePack: 'dawnlight/validatePack',
   analyzerStatus: 'dawnlight/analyzerStatus',
   restartAnalyzer: 'dawnlight/restartAnalyzer'

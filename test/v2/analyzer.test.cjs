@@ -4,7 +4,11 @@ const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
 const { pathToFileURL } = require('node:url');
-const { CONTRACT_VERSIONS, LSP_METHODS } = require('../../packages/contracts/dist');
+const {
+  CONTRACT_VERSIONS,
+  LSP_METHODS,
+  computeCatalogSnapshotHash
+} = require('../../packages/contracts/dist');
 const { DawnlightAnalyzerClient } = require('../../packages/language-server/dist/analyzerClient');
 const { LspTestHarness } = require('../../packages/test-utils/dist');
 
@@ -46,8 +50,10 @@ function handle(message) {
       snapshot: catalog,
       catalogHash: catalog.hash,
       serverSupportedVersions: [1],
-      selectedVersion: params.clientSupportedVersions && params.clientSupportedVersions.includes(1) ? 1 : undefined,
-      compatible: Boolean(params.clientSupportedVersions && params.clientSupportedVersions.includes(1)),
+      selectedVersion: mode === 'incompatible' ? undefined :
+        (params.clientSupportedVersions && params.clientSupportedVersions.includes(1) ? 1 : undefined),
+      compatible: mode !== 'incompatible' &&
+        Boolean(params.clientSupportedVersions && params.clientSupportedVersions.includes(1)),
       analyzerVersion: 'fake-catalog'
     }});
     return;
@@ -169,6 +175,14 @@ test('Analyzer getCatalog validates contract/hash and tolerates older sidecars',
   const mismatch = await client.getCatalog({ expectedCatalogHash: '0'.repeat(64) });
   assert.equal(mismatch, undefined);
   assert.equal(client.status.state, 'ready');
+  const incompatible = await client.getCatalog({
+    clientSupportedVersions: [99],
+    expectedCatalogHash: catalog.hash
+  });
+  assert.ok(incompatible);
+  assert.equal(incompatible.compatible, false);
+  assert.equal(incompatible.selectedVersion, undefined);
+  assert.equal(client.status.state, 'ready');
   await client.shutdown();
 
   const oldAnalyzerPath = createFakeAnalyzer(t, { mode: 'unknown' });
@@ -176,6 +190,71 @@ test('Analyzer getCatalog validates contract/hash and tolerates older sidecars',
   assert.equal(await oldClient.getCatalog(), undefined);
   assert.equal(oldClient.status.state, 'ready');
   await oldClient.shutdown();
+});
+
+test('Language Server exposes Analyzer Catalog parity without replacing local Catalog', async t => {
+  const catalog = JSON.parse(fs.readFileSync(path.join(root, 'catalogs', 'dawnlight-3.1.catalog.json'), 'utf8'));
+  const analyzerPath = createFakeAnalyzer(t, { catalog });
+  const { harness } = await LspTestHarness.start(serverPath, {
+    clientProtocolVersion: CONTRACT_VERSIONS.languageServerProtocol,
+    catalogSnapshotVersions: [CONTRACT_VERSIONS.catalogSnapshot],
+    analyzerPath,
+    analyzerTimeoutMs: 1000,
+    analyzerRestartLimit: 0
+  });
+  t.after(async () => {
+    if (!harness.hasExited()) await harness.shutdown();
+  });
+
+  const status = await harness.sendRequest(LSP_METHODS.analyzerCatalog, {});
+  assert.equal(status.state, 'match');
+  assert.equal(status.expectedHash, catalog.hash);
+  assert.equal(status.actualHash, catalog.hash);
+  assert.equal(status.selectedVersion, 1);
+
+  const snapshot = await harness.sendRequest(LSP_METHODS.catalogSnapshot);
+  assert.equal(snapshot.analyzer.state, 'match');
+  assert.equal(snapshot.source, 'bundled');
+  await harness.sendRequest(LSP_METHODS.restartAnalyzer, {});
+});
+
+test('Language Server surfaces Analyzer Catalog mismatch and incompatible negotiation', async t => {
+  const catalog = JSON.parse(fs.readFileSync(path.join(root, 'catalogs', 'dawnlight-3.1.catalog.json'), 'utf8'));
+  const changed = {
+    ...catalog,
+    host: { ...catalog.host, build: 'engine-production-build' }
+  };
+  changed.hash = computeCatalogSnapshotHash(changed);
+  const mismatchPath = createFakeAnalyzer(t, { catalog: changed });
+  const mismatch = await LspTestHarness.start(serverPath, {
+    clientProtocolVersion: CONTRACT_VERSIONS.languageServerProtocol,
+    catalogSnapshotVersions: [CONTRACT_VERSIONS.catalogSnapshot],
+    analyzerPath: mismatchPath,
+    analyzerTimeoutMs: 1000,
+    analyzerRestartLimit: 0
+  });
+  t.after(async () => {
+    if (!mismatch.harness.hasExited()) await mismatch.harness.shutdown();
+  });
+  const mismatchStatus = await mismatch.harness.sendRequest(LSP_METHODS.analyzerCatalog, {});
+  assert.equal(mismatchStatus.state, 'mismatch');
+  assert.equal(mismatchStatus.expectedHash, catalog.hash);
+  assert.equal(mismatchStatus.actualHash, changed.hash);
+
+  const incompatiblePath = createFakeAnalyzer(t, { catalog, mode: 'incompatible' });
+  const incompatible = await LspTestHarness.start(serverPath, {
+    clientProtocolVersion: CONTRACT_VERSIONS.languageServerProtocol,
+    catalogSnapshotVersions: [CONTRACT_VERSIONS.catalogSnapshot],
+    analyzerPath: incompatiblePath,
+    analyzerTimeoutMs: 1000,
+    analyzerRestartLimit: 0
+  });
+  t.after(async () => {
+    if (!incompatible.harness.hasExited()) await incompatible.harness.shutdown();
+  });
+  const incompatibleStatus = await incompatible.harness.sendRequest(LSP_METHODS.analyzerCatalog, {});
+  assert.equal(incompatibleStatus.state, 'incompatible');
+  assert.equal(incompatibleStatus.actualHash, catalog.hash);
 });
 
 test('save triggers authoritative diagnostics with overlays and drops stale responses', async t => {
