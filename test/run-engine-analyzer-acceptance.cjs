@@ -178,10 +178,22 @@ async function main() {
     assert.equal(missingProgram.diagnostics[0]?.code, 'DLGRAPH0003');
     assert.equal(client.status.state, 'ready', 'A domain failure must keep the Analyzer usable.');
 
-    const recoveryGraph = await client.dumpGraph(runtimeParams(10));
+    // Keep one production analysis in flight so the second request reaches the
+    // sidecar and waits on its serialized resolver gate before cancellation.
+    const gateGraph = client.dumpGraph(runtimeParams(10));
+    const cancellation = new AbortController();
+    const cancelledGraph = client.dumpGraph(runtimeParams(11), cancellation.signal);
+    await new Promise(resolve => setImmediate(resolve));
+    cancellation.abort();
+    assert.equal(await cancelledGraph, undefined,
+      'A cancelled production graph request must be discarded by the client.');
+    const completedGateGraph = await gateGraph;
+    assertSuccessfulRuntimeResult(completedGateGraph, 'graph');
+
+    const recoveryGraph = await client.dumpGraph(runtimeParams(12));
     assertSuccessfulRuntimeResult(recoveryGraph, 'graph');
     assert.equal(recoveryGraph.graph.graphHash, firstGraph.graph.graphHash,
-      'The Analyzer must recover cleanly after a domain failure.');
+      'The Analyzer must recover cleanly after domain failure and cancellation.');
 
     console.log(
       `Engine Analyzer acceptance passed: catalog=${exported.catalogHash} ` +
