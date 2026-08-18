@@ -4,11 +4,48 @@ export const LSP_METHODS = Object.freeze({
   symbolSnapshot: 'dawnlight/symbolSnapshot',
   catalogSnapshot: 'dawnlight/catalogSnapshot',
   catalogDocument: 'dawnlight/catalogDocument',
+  dumpGraph: 'dawnlight/dumpGraph',
+  explainVariant: 'dawnlight/explainVariant',
+  graphDocument: 'dawnlight/graphDocument',
+  variantDocument: 'dawnlight/variantDocument',
   analyzerCatalog: 'dawnlight/analyzerCatalog',
   validatePack: 'dawnlight/validatePack',
   analyzerStatus: 'dawnlight/analyzerStatus',
   restartAnalyzer: 'dawnlight/restartAnalyzer'
 } as const);
+
+export interface DawnlightRuntimeViewPosition {
+  line: number;
+  character: number;
+}
+
+export interface DawnlightRuntimeViewRequest {
+  documentUri?: string;
+  position?: DawnlightRuntimeViewPosition;
+  packRoot?: string;
+  programId?: string;
+  options?: Readonly<Record<string, string | number | boolean | null>>;
+  capabilities?: Readonly<Record<string, string | number | boolean | null>>;
+  includeInactive?: boolean;
+}
+
+export interface DawnlightRuntimeViewCandidate {
+  programId: string;
+  label?: string;
+  description?: string;
+  detail?: string;
+}
+
+/** LSP wrapper around an immutable graph/variant virtual document snapshot. */
+export interface DawnlightRuntimeViewResult {
+  documentUri?: string;
+  requestVersion?: number;
+  graphHash?: string;
+  variantFingerprint?: string;
+  candidates?: readonly DawnlightRuntimeViewCandidate[];
+  stale?: boolean;
+  message?: string;
+}
 
 export interface DawnlightCatalogDocumentParams {
   uri: string;

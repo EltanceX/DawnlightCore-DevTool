@@ -6,12 +6,22 @@ import {
   DEFAULT_ANALYZER_PROTOCOL_VERSIONS,
   DEFAULT_CATALOG_SNAPSHOT_VERSIONS,
   DawnlightAnalyzerInitializeResult,
+  DawnlightAnalyzerDumpGraphParams,
+  DawnlightAnalyzerDumpGraphResult,
+  DawnlightAnalyzerExplainVariantParams,
+  DawnlightAnalyzerExplainVariantResult,
   DawnlightAnalyzerGetCatalogParams,
   DawnlightAnalyzerGetCatalogResult,
   DawnlightAnalyzerStatus,
   DawnlightAnalyzerValidatePackParams,
   DawnlightAnalyzerValidatePackResult,
-  parseDawnlightAnalyzerGetCatalogResult
+  parseDawnlightAnalyzerGetCatalogResult,
+  parseDawnlightAnalyzerDumpGraphParams,
+  parseDawnlightAnalyzerDumpGraphResult,
+  parseDawnlightAnalyzerExplainVariantParams,
+  parseDawnlightAnalyzerExplainVariantResult,
+  DEFAULT_RUNTIME_GRAPH_VERSIONS,
+  DEFAULT_VARIANT_EXPLAIN_VERSIONS
 } from '@dawnlight/contracts';
 
 interface AnalyzerClientOptions {
@@ -27,9 +37,25 @@ interface PendingRequest {
   resolve: (value: unknown) => void;
   reject: (error: Error) => void;
   timer: NodeJS.Timeout;
+  signal?: AbortSignal;
+  abortListener?: () => void;
 }
 
 const MAX_MESSAGE_BYTES = 8 * 1024 * 1024;
+
+export class DawnlightAnalyzerRequestCancelledError extends Error {
+  constructor(message = 'Analyzer request was cancelled.') {
+    super(message);
+    this.name = 'DawnlightAnalyzerRequestCancelledError';
+  }
+}
+
+export function isAnalyzerRequestCancelled(error: unknown): boolean {
+  return error instanceof DawnlightAnalyzerRequestCancelledError ||
+    (error instanceof Error &&
+      ((error as Error & { code?: number | string }).code === -32800 ||
+        error.name === 'AbortError'));
+}
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -72,6 +98,14 @@ export class DawnlightAnalyzerClient {
   private intentionalStop = false;
   private input = Buffer.alloc(0);
   private readonly pending = new Map<number, PendingRequest>();
+  private readonly unsupportedMethods = new Set<string>();
+  private activeOperations = 0;
+  private processGeneration = 0;
+
+  /** Changes whenever a sidecar process is replaced; callers use it in stale guards. */
+  get epoch(): number {
+    return this.processGeneration;
+  }
 
   constructor(options: AnalyzerClientOptions = {}) {
     this.options = {
@@ -102,6 +136,7 @@ export class DawnlightAnalyzerClient {
     };
     if (changed) {
       void this.shutdown();
+      this.unsupportedMethods.clear();
       this.restartCount = 0;
       this.lastError = undefined;
       this.state = this.options.analyzerPath ? 'offline' : 'disabled';
@@ -118,9 +153,8 @@ export class DawnlightAnalyzerClient {
     } catch {
       return undefined;
     }
+    this.beginOperation();
     try {
-      this.state = 'validating';
-      this.publishState();
       const result = await this.request<DawnlightAnalyzerValidatePackResult>(
         ANALYZER_METHODS.validatePack,
         params
@@ -129,12 +163,12 @@ export class DawnlightAnalyzerClient {
         !Array.isArray(result.diagnostics)) {
         throw new Error('Analyzer returned an invalid validatePack result.');
       }
-      this.state = 'ready';
-      this.publishState();
       return result;
     } catch (error) {
-      if (this.process) this.recordFailure(error);
+      if (this.process && !isAnalyzerRequestCancelled(error)) this.recordFailure(error);
       return undefined;
+    } finally {
+      this.endOperation();
     }
   }
 
@@ -151,6 +185,7 @@ export class DawnlightAnalyzerClient {
     params: DawnlightAnalyzerGetCatalogParams = {}
   ): Promise<DawnlightAnalyzerGetCatalogResult | undefined> {
     if (!this.options.analyzerPath) return undefined;
+    if (this.unsupportedMethods.has(ANALYZER_METHODS.getCatalog)) return undefined;
     try {
       await this.ensureStarted();
     } catch {
@@ -162,7 +197,9 @@ export class DawnlightAnalyzerClient {
       clientSupportedVersions.some(version => !Number.isInteger(version) || version < 0) ||
       new Set(clientSupportedVersions).size !== clientSupportedVersions.length) {
       this.lastError = 'Analyzer Catalog request contains invalid supported versions.';
-      this.state = this.process ? 'ready' : (this.options.analyzerPath ? 'offline' : 'disabled');
+      this.state = this.process
+        ? (this.activeOperations > 0 ? 'validating' : 'ready')
+        : (this.options.analyzerPath ? 'offline' : 'disabled');
       this.publishState();
       return undefined;
     }
@@ -178,7 +215,8 @@ export class DawnlightAnalyzerClient {
       // Keep the process alive so validatePack remains available.
       if (isMethodNotFound(error)) {
         this.lastError = errorMessage(error);
-        this.state = 'ready';
+        this.unsupportedMethods.add(ANALYZER_METHODS.getCatalog);
+        this.state = this.activeOperations > 0 ? 'validating' : 'ready';
         this.publishState();
         return undefined;
       }
@@ -205,21 +243,52 @@ export class DawnlightAnalyzerClient {
         throw new Error('Analyzer Catalog hash does not match the active Catalog.');
       }
       this.lastError = undefined;
-      this.state = 'ready';
+      this.state = this.activeOperations > 0 ? 'validating' : 'ready';
       this.publishState();
       return result;
     } catch (error) {
       // A malformed or stale export is a non-fatal Analyzer protocol issue;
       // callers can continue using the bundled/local Catalog.
       this.lastError = errorMessage(error);
-      this.state = this.process ? 'ready' : (this.options.analyzerPath ? 'offline' : 'disabled');
+      this.state = this.process
+        ? (this.activeOperations > 0 ? 'validating' : 'ready')
+        : (this.options.analyzerPath ? 'offline' : 'disabled');
       this.publishState();
       return undefined;
     }
   }
 
+  async dumpGraph(
+    params: DawnlightAnalyzerDumpGraphParams,
+    signal?: AbortSignal
+  ): Promise<DawnlightAnalyzerDumpGraphResult | undefined> {
+    return this.runtimeRequest(
+      ANALYZER_METHODS.dumpGraph,
+      params,
+      parseDawnlightAnalyzerDumpGraphParams,
+      parseDawnlightAnalyzerDumpGraphResult,
+      DEFAULT_RUNTIME_GRAPH_VERSIONS,
+      signal
+    );
+  }
+
+  async explainVariant(
+    params: DawnlightAnalyzerExplainVariantParams,
+    signal?: AbortSignal
+  ): Promise<DawnlightAnalyzerExplainVariantResult | undefined> {
+    return this.runtimeRequest(
+      ANALYZER_METHODS.explainVariant,
+      params,
+      parseDawnlightAnalyzerExplainVariantParams,
+      parseDawnlightAnalyzerExplainVariantResult,
+      DEFAULT_VARIANT_EXPLAIN_VERSIONS,
+      signal
+    );
+  }
+
   async restart(): Promise<void> {
     await this.stopProcess();
+    this.unsupportedMethods.clear();
     this.restartCount = 0;
     this.lastError = undefined;
     this.state = this.options.analyzerPath ? 'offline' : 'disabled';
@@ -228,6 +297,7 @@ export class DawnlightAnalyzerClient {
 
   async shutdown(): Promise<void> {
     await this.stopProcess(true);
+    this.unsupportedMethods.clear();
     this.state = this.options.analyzerPath ? 'offline' : 'disabled';
     this.publishState();
   }
@@ -278,6 +348,7 @@ export class DawnlightAnalyzerClient {
       windowsHide: true,
       shell: false
     });
+    this.processGeneration += 1;
     this.process = child;
     this.intentionalStop = false;
     this.input = Buffer.alloc(0);
@@ -320,6 +391,7 @@ export class DawnlightAnalyzerClient {
         throw new Error('Analyzer protocol negotiation failed.');
       }
       this.protocolVersion = result.selectedVersion;
+      this.unsupportedMethods.clear();
       this.state = 'ready';
       this.publishState();
     } catch (error) {
@@ -327,9 +399,10 @@ export class DawnlightAnalyzerClient {
     }
   }
 
-  private request<T>(method: string, params: unknown): Promise<T> {
+  private request<T>(method: string, params: unknown, signal?: AbortSignal): Promise<T> {
     const child = this.process;
     if (!child || child.stdin.destroyed) return Promise.reject(new Error('Analyzer process is not running.'));
+    if (signal?.aborted) return Promise.reject(new DawnlightAnalyzerRequestCancelledError());
     const id = this.nextId++;
     const payload = JSON.stringify({ jsonrpc: '2.0', id, method, params });
     const frame = `Content-Length: ${Buffer.byteLength(payload, 'utf8')}\r\n\r\n${payload}`;
@@ -338,17 +411,129 @@ export class DawnlightAnalyzerClient {
     }
     return new Promise<T>((resolve, reject) => {
       const timer = setTimeout(() => {
+        const pending = this.pending.get(id);
         this.pending.delete(id);
+        if (pending?.signal && pending.abortListener) {
+          pending.signal.removeEventListener('abort', pending.abortListener);
+        }
         reject(new Error(`Analyzer request '${method}' timed out.`));
       }, this.options.timeoutMs);
-      this.pending.set(id, { resolve: value => resolve(value as T), reject, timer });
+      const abortListener = signal ? () => {
+        const pending = this.pending.get(id);
+        if (!pending) return;
+        clearTimeout(pending.timer);
+        this.pending.delete(id);
+        signal.removeEventListener('abort', abortListener!);
+        this.sendNotification('$/cancelRequest', { id });
+        reject(new DawnlightAnalyzerRequestCancelledError(
+          `Analyzer request '${method}' was cancelled.`
+        ));
+      } : undefined;
+      this.pending.set(id, {
+        resolve: value => resolve(value as T),
+        reject,
+        timer,
+        signal,
+        abortListener
+      });
+      if (signal && abortListener) signal.addEventListener('abort', abortListener, { once: true });
       child.stdin.write(frame, error => {
         if (!error) return;
         clearTimeout(timer);
+        const pending = this.pending.get(id);
         this.pending.delete(id);
+        if (pending?.signal && pending.abortListener) {
+          pending.signal.removeEventListener('abort', pending.abortListener);
+        }
         reject(error);
       });
     });
+  }
+
+  private async runtimeRequest<Params, Result>(
+    method: string,
+    rawParams: Params,
+    parseParams: (value: unknown) => Params,
+    parseResult: (value: unknown) => Result,
+    supportedVersions: readonly number[],
+    signal?: AbortSignal
+  ): Promise<Result | undefined> {
+    if (!this.options.analyzerPath) return undefined;
+    if (this.unsupportedMethods.has(method)) return undefined;
+    let params: Params;
+    try {
+      params = parseParams(rawParams);
+    } catch (error) {
+      this.lastError = errorMessage(error);
+      this.state = this.process
+        ? (this.activeOperations > 0 ? 'validating' : 'ready')
+        : (this.options.analyzerPath ? 'offline' : 'disabled');
+      this.publishState();
+      return undefined;
+    }
+    try {
+      await this.ensureStarted();
+    } catch {
+      return undefined;
+    }
+    this.beginOperation();
+    try {
+      const result = parseResult(await this.request<unknown>(method, {
+        ...params as Record<string, unknown>,
+        clientSupportedVersions: supportedVersions
+      }, signal));
+      const requestRecord = params as Record<string, unknown>;
+      const resultRecord = result as Record<string, unknown>;
+      if (resultRecord.requestVersion !== requestRecord.requestVersion ||
+        resultRecord.catalogHash !== requestRecord.catalogHash) {
+        throw new Error(`Analyzer ${method} response does not echo the request version/catalog hash.`);
+      }
+      this.lastError = undefined;
+      return result;
+    } catch (error) {
+      if (!isAnalyzerRequestCancelled(error) && this.process && !isMethodNotFound(error)) {
+        this.lastError = errorMessage(error);
+        // A malformed payload is non-fatal; a transport timeout/crash follows
+        // the existing restart policy and takes the sidecar offline.
+        if (/timed out|exited unexpectedly|not running|Content-Length|invalid JSON/i.test(errorMessage(error))) {
+          this.recordFailure(error);
+        } else {
+          this.state = 'validating';
+          this.publishState();
+        }
+      } else if (isMethodNotFound(error)) {
+        this.lastError = errorMessage(error);
+        this.unsupportedMethods.add(method);
+      }
+      return undefined;
+    } finally {
+      this.endOperation();
+    }
+  }
+
+  private sendNotification(method: string, params: unknown): void {
+    const child = this.process;
+    if (!child || child.stdin.destroyed) return;
+    const payload = JSON.stringify({ jsonrpc: '2.0', method, params });
+    const frame = `Content-Length: ${Buffer.byteLength(payload, 'utf8')}\r\n\r\n${payload}`;
+    if (Buffer.byteLength(frame, 'utf8') > MAX_MESSAGE_BYTES) return;
+    child.stdin.write(frame, () => undefined);
+  }
+
+  private beginOperation(): void {
+    this.activeOperations += 1;
+    this.state = 'validating';
+    this.publishState();
+  }
+
+  private endOperation(): void {
+    this.activeOperations = Math.max(0, this.activeOperations - 1);
+    if (!this.process) {
+      this.state = this.options.analyzerPath ? 'offline' : 'disabled';
+    } else {
+      this.state = this.activeOperations > 0 ? 'validating' : 'ready';
+    }
+    this.publishState();
   }
 
   private readOutput(chunk: Buffer): void {
@@ -389,6 +574,9 @@ export class DawnlightAnalyzerClient {
     if (!pending) return;
     this.pending.delete(message.id);
     clearTimeout(pending.timer);
+    if (pending.signal && pending.abortListener) {
+      pending.signal.removeEventListener('abort', pending.abortListener);
+    }
     if (isRecord(message.error)) pending.reject(asError(message.error));
     else pending.resolve(message.result);
   }
@@ -420,6 +608,9 @@ export class DawnlightAnalyzerClient {
   private failPending(error: Error): void {
     for (const [id, pending] of this.pending) {
       clearTimeout(pending.timer);
+      if (pending.signal && pending.abortListener) {
+        pending.signal.removeEventListener('abort', pending.abortListener);
+      }
       pending.reject(error);
       this.pending.delete(id);
     }

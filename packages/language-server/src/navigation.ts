@@ -228,6 +228,24 @@ export class DawnlightNavigationService {
     return context.symbol ? [Location.create(context.symbol.uri, context.symbol.selectionRange)] : null;
   }
 
+  /** Resolve the pack-local semantic symbol used by optional runtime views. */
+  runtimeSymbol(
+    document: TextDocument,
+    position: Position
+  ): { id: string; kind: DawnlightSymbolKind; range: Range } | undefined {
+    const context = this.context(document, position);
+    if (!context) return undefined;
+    const symbol = context.symbol ?? (context.reference
+      ? this.uniqueTarget(context.project, context.reference)
+      : undefined);
+    if (!symbol || !coreSymbolKinds.has(symbol.kind)) return undefined;
+    return {
+      id: symbol.id,
+      kind: symbol.kind,
+      range: context.reference?.range ?? symbol.selectionRange
+    };
+  }
+
   references(document: TextDocument, position: Position, includeDeclaration: boolean): Location[] | null {
     const context = this.context(document, position);
     if (!context) return null;

@@ -28,7 +28,7 @@ test('contract versions are explicit and independent from the extension version'
   assert.notEqual(CONTRACT_VERSIONS.languageServerProtocol, '0.1.0');
 });
 
-test('server capabilities advertise every authoring contract supported by V2-0', () => {
+test('server capabilities advertise every authoring contract supported by V3-1', () => {
   assert.deepEqual(SERVER_CAPABILITIES, {
     languageServerProtocolVersion: CONTRACT_VERSIONS.languageServerProtocol,
     analyzerProtocolVersions: [CONTRACT_VERSIONS.analyzerProtocol],
@@ -36,7 +36,9 @@ test('server capabilities advertise every authoring contract supported by V2-0',
     catalogSnapshotVersions: [CONTRACT_VERSIONS.catalogSnapshot],
     manifestVersions: [CONTRACT_VERSIONS.manifest],
     sourceCompositionVersions: [CONTRACT_VERSIONS.sourceComposition],
-    settingsUiVersions: [CONTRACT_VERSIONS.settingsUi]
+    settingsUiVersions: [CONTRACT_VERSIONS.settingsUi],
+    runtimeGraphVersions: [1],
+    variantExplainVersions: [1]
   });
   assert.equal(Object.isFrozen(SERVER_CAPABILITIES), true);
   assert.equal(Object.isFrozen(SERVER_CAPABILITIES.manifestVersions), true);
@@ -71,6 +73,10 @@ test('Analyzer protocol methods and Language Server control methods are stable',
   assert.equal(LSP_METHODS.analyzerCatalog, 'dawnlight/analyzerCatalog');
   assert.equal(LSP_METHODS.analyzerStatus, 'dawnlight/analyzerStatus');
   assert.equal(LSP_METHODS.restartAnalyzer, 'dawnlight/restartAnalyzer');
+  assert.equal(LSP_METHODS.dumpGraph, 'dawnlight/dumpGraph');
+  assert.equal(LSP_METHODS.explainVariant, 'dawnlight/explainVariant');
+  assert.equal(LSP_METHODS.graphDocument, 'dawnlight/graphDocument');
+  assert.equal(LSP_METHODS.variantDocument, 'dawnlight/variantDocument');
 });
 
 test('diagnostic code creation rejects unstable ordinals', () => {

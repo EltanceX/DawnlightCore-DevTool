@@ -29,6 +29,8 @@ export interface DawnlightServerCapabilities {
   manifestVersions: readonly number[];
   sourceCompositionVersions: readonly number[];
   settingsUiVersions: readonly number[];
+  runtimeGraphVersions: readonly number[];
+  variantExplainVersions: readonly number[];
 }
 
 export const SERVER_CAPABILITIES: DawnlightServerCapabilities = Object.freeze({
@@ -38,5 +40,7 @@ export const SERVER_CAPABILITIES: DawnlightServerCapabilities = Object.freeze({
   catalogSnapshotVersions: Object.freeze([CONTRACT_VERSIONS.catalogSnapshot]),
   manifestVersions: Object.freeze([CONTRACT_VERSIONS.manifest]),
   sourceCompositionVersions: Object.freeze([CONTRACT_VERSIONS.sourceComposition]),
-  settingsUiVersions: Object.freeze([CONTRACT_VERSIONS.settingsUi])
+  settingsUiVersions: Object.freeze([CONTRACT_VERSIONS.settingsUi]),
+  runtimeGraphVersions: Object.freeze([1]),
+  variantExplainVersions: Object.freeze([1])
 });

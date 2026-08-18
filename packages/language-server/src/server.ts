@@ -1,5 +1,6 @@
 import {
   createConnection,
+  CancellationToken,
   DidChangeWatchedFilesParams,
   DidChangeWorkspaceFoldersParams,
   Diagnostic,
@@ -7,6 +8,7 @@ import {
   ErrorCodes,
   InitializeResult,
   Location,
+  MarkupKind,
   ProposedFeatures,
   Range,
   ResponseError,
@@ -34,6 +36,17 @@ import {
   DawnlightAnalyzerStatus,
   DawnlightAnalyzerValidatePackResult
 } from '@dawnlight/contracts';
+import {
+  DawnlightAnalyzerDumpGraphParams,
+  DawnlightAnalyzerDumpGraphResult,
+  DawnlightAnalyzerExplainVariantParams,
+  DawnlightAnalyzerExplainVariantResult,
+  DawnlightRuntimeDiagnostic,
+  DawnlightRuntimeGraphSnapshot,
+  DawnlightRuntimeViewCandidate,
+  DawnlightRuntimeViewRequest,
+  DawnlightRuntimeViewResult
+} from '@dawnlight/contracts';
 import { DawnlightSchemaService, DynamicSchemaRole } from './schemaService';
 import { JsoncDocumentStore } from './jsoncDocuments';
 import { PackComposition, WorkspaceCompositionManager } from './composition';
@@ -57,6 +70,16 @@ import {
 import { resolveCatalogSnapshot } from './catalog';
 import { DawnlightCatalogNavigationService } from './catalogNavigation';
 import { DawnlightAnalyzerClient } from './analyzerClient';
+import {
+  decodeRuntimeDocumentUri,
+  encodeRuntimeDocumentUri,
+  renderRuntimeGraph,
+  renderVariantExplanation,
+  RuntimeSnapshotCache,
+  runtimeInputFingerprint,
+  RuntimeDocumentLike,
+  sha256
+} from './runtimeAnalysis';
 
 const connection = createConnection(ProposedFeatures.all);
 const documents = new TextDocuments(TextDocument);
@@ -78,6 +101,7 @@ const catalogNavigation = new DawnlightCatalogNavigationService(documentStore, (
 const fastDiagnosticService = new DawnlightFastDiagnosticService();
 const schemaDiagnostics = new Map<string, readonly Diagnostic[]>();
 const analyzerDiagnostics = new Map<string, readonly Diagnostic[]>();
+const runtimeDiagnostics = new Map<string, readonly Diagnostic[]>();
 const fastDiagnostics = new Map<FastDiagnosticSource, ReadonlyMap<string, readonly Diagnostic[]>>();
 const knownDiagnosticUris = new Set<string>();
 let fastDiagnosticTimer: NodeJS.Timeout | undefined;
@@ -86,16 +110,31 @@ let initializedWorkspaceFolders: string[] = [];
 let validationOnSave = true;
 let analyzerRequestVersion = 0;
 const analyzerLatestRequests = new Map<string, number>();
+const runtimeLatestRequests = new Map<string, number>();
+const runtimeCache = new RuntimeSnapshotCache(64);
+const runtimeUriByFingerprint = new Map<string, string>();
+const latestRuntimeGraphs = new Map<string, {
+  uri: string;
+  packRoot: string;
+  fingerprint: string;
+  content: string;
+  graph: DawnlightRuntimeGraphSnapshot;
+}>();
+let runtimeRequestVersion = 0;
+let workspaceModelPromise: Promise<void> = Promise.resolve();
 let analyzerCatalogStatus: DawnlightAnalyzerCatalogStatus = {
   state: 'not-requested',
   expectedHash: catalogState.hash
 };
+let analyzerCatalogRefreshPromise: Promise<ReturnType<typeof analyzerCatalogStatusSnapshot>> | undefined;
+let analyzerCatalogRefreshHash: string | undefined;
 const analyzerClient = new DawnlightAnalyzerClient({
   onStderr: text => connection.console.warn(`Dawnlight Analyzer: ${text.trim()}`),
   onState: status => {
     connection.console.info(`Dawnlight Analyzer state: ${status.state}.`);
     if (status.state === 'offline' && status.lastError) {
       connection.console.warn(`Dawnlight Analyzer offline: ${status.lastError}`);
+      clearAllRuntimeState();
     }
   }
 });
@@ -162,6 +201,7 @@ function publishMergedDiagnostics(uri: string): void {
     diagnostics.push(...(fastDiagnostics.get(source)?.get(uri) ?? []));
   }
   diagnostics.push(...(analyzerDiagnostics.get(uri) ?? []));
+  diagnostics.push(...(runtimeDiagnostics.get(uri) ?? []));
   connection.sendDiagnostics({ uri, diagnostics });
 }
 
@@ -296,12 +336,247 @@ function analyzerOverlays(pack: ShaderPackProject, project: PackComposition | un
   return overlays;
 }
 
+function clearRuntimeDiagnostics(pack: ShaderPackProject, project?: PackComposition): void {
+  for (const document of project?.documents ?? []) runtimeDiagnostics.delete(document.uri);
+  runtimeDiagnostics.delete(pathToFileURL(pack.manifestPath).toString());
+  for (const uri of runtimeDiagnostics.keys()) {
+    const filePath = uriToPath(uri);
+    if (filePath && isWithinPath(pack.rootPath, filePath)) runtimeDiagnostics.delete(uri);
+  }
+}
+
+function runtimeDiagnosticLocation(
+  pack: ShaderPackProject,
+  diagnostic: DawnlightRuntimeDiagnostic
+): { document: NonNullable<ReturnType<typeof documentStore.getByPath>>; range: Range } | undefined {
+  const file = diagnostic.provenance?.file;
+  const absolutePath = file
+    ? path.resolve(pack.rootPath, ...file.replace(/\\/g, '/').split('/'))
+    : pack.manifestPath;
+  if (!isWithinPath(pack.rootPath, absolutePath)) return undefined;
+  const document = documentStore.getByPath(absolutePath);
+  if (!document) return undefined;
+  return {
+    document,
+    range: analyzerDiagnosticRange(document, diagnostic.provenance?.pointer)
+  };
+}
+
+function publishRuntimeDiagnostics(
+  pack: ShaderPackProject,
+  project: PackComposition | undefined,
+  diagnostics: readonly DawnlightRuntimeDiagnostic[]
+): void {
+  clearRuntimeDiagnostics(pack, project);
+  const byUri = new Map<string, Diagnostic[]>();
+  for (const item of diagnostics) {
+    if (!item || !/^DLGRAPH[0-9]{4}$/.test(item.code) && !/^DLMAN[0-9]{4}$/.test(item.code)) continue;
+    const location = runtimeDiagnosticLocation(pack, item);
+    if (!location) continue;
+    const relatedInformation = (item.related ?? []).flatMap(related => {
+      const provenance = related.provenance;
+      if (!provenance?.file) return [];
+      const relatedPath = path.resolve(pack.rootPath, ...provenance.file.replace(/\\/g, '/').split('/'));
+      if (!isWithinPath(pack.rootPath, relatedPath)) return [];
+      const relatedDocument = documentStore.getByPath(relatedPath);
+      if (!relatedDocument) return [];
+      return [{
+        location: Location.create(
+          relatedDocument.uri,
+          analyzerDiagnosticRange(relatedDocument, provenance.pointer)
+        ),
+        message: related.message
+      }];
+    });
+    const diagnostic: Diagnostic = {
+      source: 'dawnlight-analyzer-graph',
+      code: item.code,
+      message: item.message,
+      severity: analyzerSeverity(item.severity),
+      range: location.range,
+      relatedInformation: relatedInformation.length > 0 ? relatedInformation : undefined
+    };
+    const list = byUri.get(location.document.uri) ?? [];
+    list.push(diagnostic);
+    byUri.set(location.document.uri, list);
+  }
+  for (const [uri, items] of byUri) {
+    runtimeDiagnostics.set(uri, Object.freeze(items));
+    knownDiagnosticUris.add(uri);
+  }
+  for (const document of project?.documents ?? []) knownDiagnosticUris.add(document.uri);
+  for (const uri of knownDiagnosticUris) publishMergedDiagnostics(uri);
+}
+
+function invalidateRuntimePack(packRoot: string): void {
+  for (const key of latestRuntimeGraphs.keys()) {
+    if (path.resolve(key).toLowerCase() === path.resolve(packRoot).toLowerCase()) {
+      latestRuntimeGraphs.delete(key);
+    }
+  }
+  for (const [key, uri] of runtimeUriByFingerprint) {
+    const entry = runtimeCache.get(uri);
+    if (!entry || isWithinPath(packRoot, entry.packRoot) || isWithinPath(entry.packRoot, packRoot)) {
+      runtimeUriByFingerprint.delete(key);
+    }
+  }
+  runtimeCache.invalidatePack(packRoot);
+  for (const key of runtimeLatestRequests.keys()) {
+    if (key.includes(path.resolve(packRoot))) runtimeLatestRequests.delete(key);
+  }
+}
+
+function invalidateAllRuntimeSnapshots(): void {
+  runtimeCache.clear();
+  runtimeUriByFingerprint.clear();
+  runtimeLatestRequests.clear();
+  latestRuntimeGraphs.clear();
+}
+
+function clearAllRuntimeState(): void {
+  invalidateAllRuntimeSnapshots();
+  runtimeDiagnostics.clear();
+  for (const uri of knownDiagnosticUris) publishMergedDiagnostics(uri);
+}
+
+function invalidateRuntimeForPath(filePath: string): void {
+  const pack = discovery.findPackForDocument(filePath);
+  if (!pack) return;
+  invalidateRuntimePack(pack.rootPath);
+  const project = composition.snapshot.internalProjects.find(item => item.rootUri === pack.rootPath);
+  clearRuntimeDiagnostics(pack, project);
+  for (const uri of knownDiagnosticUris) publishMergedDiagnostics(uri);
+}
+
+function positionContains(range: { start: { line: number; character: number }; end: { line: number; character: number } }, position: { line: number; character: number }): boolean {
+  if (position.line < range.start.line || position.line > range.end.line) return false;
+  if (position.line === range.start.line && position.character < range.start.character) return false;
+  if (position.line === range.end.line && position.character > range.end.character) return false;
+  return true;
+}
+
+function runtimePackForRequest(params: DawnlightRuntimeViewRequest): {
+  pack?: ShaderPackProject;
+  project?: PackComposition;
+  message?: string;
+} {
+  let pack: ShaderPackProject | undefined;
+  if (params.packRoot) {
+    const requested = path.resolve(params.packRoot);
+    pack = discovery.snapshot.packs.find(candidate =>
+      path.resolve(candidate.rootPath).toLowerCase() === requested.toLowerCase());
+    if (!pack) return { message: `No discovered shader pack matches '${params.packRoot}'.` };
+  } else if (params.documentUri) {
+    const documentPath = uriToPath(params.documentUri);
+    if (documentPath) pack = discovery.findPackForDocument(documentPath);
+  }
+  if (!pack && discovery.snapshot.packs.length === 1) pack = discovery.snapshot.packs[0];
+  if (!pack) {
+    return {
+      message: discovery.snapshot.packs.length === 0
+        ? 'No shader pack was discovered in the workspace.'
+        : 'Several shader packs are open; specify a document or packRoot.'
+    };
+  }
+  return {
+    pack,
+    project: composition.snapshot.internalProjects.find(item => item.rootUri === pack!.rootPath)
+  };
+}
+
+function runtimeProgramCandidates(
+  pack: ShaderPackProject,
+  project: PackComposition | undefined,
+  params: DawnlightRuntimeViewRequest
+): readonly DawnlightRuntimeViewCandidate[] {
+  const definitions = project?.definitions.program ?? [];
+  let candidates = definitions;
+  if (params.documentUri && params.position) {
+    candidates = definitions.filter(definition =>
+      definition.uri === params.documentUri && positionContains(definition.range, params.position!));
+  }
+  if (candidates.length === 0) candidates = definitions;
+  return candidates
+    .map(definition => ({
+      programId: definition.id,
+      label: definition.id,
+      description: `${definition.value.kind ?? 'program'} in ${path.relative(pack.rootPath, uriToPath(definition.uri) ?? definition.uri).replace(/\\/g, '/')}`,
+      detail: definition.value.variantOf ? `variant of ${String(definition.value.variantOf)}` : undefined
+    }))
+    .sort((left, right) => left.programId.localeCompare(right.programId));
+}
+
+function runtimeInputs(params: DawnlightRuntimeViewRequest) {
+  return {
+    options: params.options ?? {},
+    capabilities: params.capabilities ?? {}
+  } as const;
+}
+
+function runtimeOverlays(
+  pack: ShaderPackProject,
+  project: PackComposition | undefined
+): DawnlightAnalyzerOverlay[] {
+  return analyzerOverlays(pack, project).sort((left, right) =>
+    left.path < right.path ? -1 : left.path > right.path ? 1 : 0);
+}
+
+function runtimeCancellationSignal(token?: CancellationToken): {
+  signal: AbortSignal;
+  dispose: () => void;
+} {
+  const controller = new AbortController();
+  if (!token) return { signal: controller.signal, dispose: () => undefined };
+  if (token.isCancellationRequested) controller.abort();
+  const subscription = token.onCancellationRequested(() => controller.abort());
+  return { signal: controller.signal, dispose: () => subscription.dispose() };
+}
+
+function runtimeFailureMessage(
+  kind: 'graph' | 'variant',
+  result: { compatible: boolean; success: boolean; diagnostics: readonly DawnlightRuntimeDiagnostic[] } | undefined
+): string {
+  if (!result) return `Analyzer did not return a ${kind} snapshot.`;
+  if (!result.compatible) return `Analyzer ${kind} contract is incompatible with this client.`;
+  const first = result.diagnostics[0];
+  return first ? `${first.code}: ${first.message}` : `Analyzer could not resolve the ${kind} request.`;
+}
+
+function runtimeResultDiagnostics(
+  result: DawnlightAnalyzerDumpGraphResult | DawnlightAnalyzerExplainVariantResult
+): readonly DawnlightRuntimeDiagnostic[] {
+  const diagnostics = [...result.diagnostics];
+  if ('graph' in result && result.graph) diagnostics.push(...result.graph.hazards);
+  return diagnostics;
+}
+
+function runtimeDocumentSourceUri(pack: ShaderPackProject, params: DawnlightRuntimeViewRequest): string {
+  return params.documentUri && uriToPath(params.documentUri)
+    ? params.documentUri
+    : pathToFileURL(pack.manifestPath).toString();
+}
+
 function analyzerCatalogStatusSnapshot() {
   return Object.freeze({ ...analyzerCatalogStatus });
 }
 
-async function refreshAnalyzerCatalog(): Promise<ReturnType<typeof analyzerCatalogStatusSnapshot>> {
+function refreshAnalyzerCatalog(): Promise<ReturnType<typeof analyzerCatalogStatusSnapshot>> {
   const expectedHash = catalogState.hash;
+  if (analyzerCatalogRefreshPromise && analyzerCatalogRefreshHash === expectedHash) {
+    return analyzerCatalogRefreshPromise;
+  }
+  analyzerCatalogRefreshHash = expectedHash;
+  const promise = refreshAnalyzerCatalogCore(expectedHash).finally(() => {
+    if (analyzerCatalogRefreshPromise === promise) {
+      analyzerCatalogRefreshPromise = undefined;
+      analyzerCatalogRefreshHash = undefined;
+    }
+  });
+  analyzerCatalogRefreshPromise = promise;
+  return promise;
+}
+
+async function refreshAnalyzerCatalogCore(expectedHash: string): Promise<ReturnType<typeof analyzerCatalogStatusSnapshot>> {
   // An empty expected hash asks the sidecar for its actual snapshot so the
   // server can report a useful mismatch instead of turning it into a generic
   // request failure. The client still validates the snapshot's own hash and
@@ -311,6 +586,9 @@ async function refreshAnalyzerCatalog(): Promise<ReturnType<typeof analyzerCatal
       clientSupportedVersions: [CONTRACT_VERSIONS.catalogSnapshot],
       expectedCatalogHash: ''
     });
+  if (catalogState.hash.toLowerCase() !== expectedHash.toLowerCase()) {
+    return analyzerCatalogStatusSnapshot();
+  }
   if (!result) {
     const lastError = analyzerClient.status.lastError;
     const state: DawnlightAnalyzerCatalogParityState = !analyzerClient.status.path
@@ -332,6 +610,7 @@ async function refreshAnalyzerCatalog(): Promise<ReturnType<typeof analyzerCatal
     } else {
       connection.console.warn(`Dawnlight Analyzer Catalog export was invalid: ${analyzerCatalogStatus.message}`);
     }
+    clearAllRuntimeState();
     return analyzerCatalogStatusSnapshot();
   }
   const actualHash = result.catalogHash;
@@ -360,6 +639,7 @@ async function refreshAnalyzerCatalog(): Promise<ReturnType<typeof analyzerCatal
       `(selected version ${result.selectedVersion ?? 'none'}).`
     );
   }
+  if (state !== 'match') clearAllRuntimeState();
   return analyzerCatalogStatusSnapshot();
 }
 
@@ -385,6 +665,347 @@ async function validatePackWithAnalyzer(pack: ShaderPackProject): Promise<{
   }
   publishAnalyzerResult(pack, project, result);
   return { accepted: true, requestVersion, status: analyzerClient.status };
+}
+
+async function ensureRuntimeCatalogParity(): Promise<{ ok: boolean; message?: string }> {
+  if (analyzerCatalogStatus.state === 'match' &&
+      analyzerCatalogStatus.expectedHash.toLowerCase() === catalogState.hash.toLowerCase() &&
+      (analyzerClient.status.state === 'ready' || analyzerClient.status.state === 'validating')) {
+    return { ok: true };
+  }
+  const status = await refreshAnalyzerCatalog();
+  if (status.state !== 'match') {
+    return {
+      ok: false,
+      message: status.message ??
+        `Runtime analysis requires Analyzer Catalog parity (current state: ${status.state}).`
+    };
+  }
+  return { ok: true };
+}
+
+function runtimeFingerprint(
+  kind: 'graph' | 'variant',
+  pack: ShaderPackProject,
+  project: PackComposition | undefined,
+  selector: string | undefined,
+  params: DawnlightRuntimeViewRequest
+): string {
+  return runtimeInputFingerprint(
+    pack.rootPath,
+    catalogState.hash,
+    kind,
+    selector,
+    {
+      inputs: runtimeInputs(params),
+      includeInactive: params.includeInactive ?? true
+    },
+    project as { documents?: readonly RuntimeDocumentLike[] } | undefined
+  );
+}
+
+function runtimeCacheKey(
+  kind: 'graph' | 'variant',
+  packRoot: string,
+  fingerprint: string,
+  selector?: string
+): string {
+  return `${kind}:${path.resolve(packRoot)}:${selector ?? ''}:${fingerprint}`;
+}
+
+function isRuntimeRequestCurrent(
+  latestKey: string,
+  requestVersion: number,
+  epoch: number,
+  fingerprint: string,
+  pack: ShaderPackProject,
+  project: PackComposition | undefined,
+  kind: 'graph' | 'variant',
+  selector: string | undefined,
+  params: DawnlightRuntimeViewRequest
+): boolean {
+  if (runtimeLatestRequests.get(latestKey) !== requestVersion) return false;
+  if (analyzerClient.epoch !== epoch) return false;
+  if (!discovery.snapshot.packs.some(item => item.rootPath === pack.rootPath)) return false;
+  return runtimeFingerprint(kind, pack, project, selector, params) === fingerprint;
+}
+
+function runtimeViewResultForEntry(
+  entry: ReturnType<RuntimeSnapshotCache['get']>,
+  result: { requestVersion: number; graphHash?: string; variantFingerprint?: string }
+): DawnlightRuntimeViewResult {
+  return {
+    documentUri: entry?.uri,
+    requestVersion: result.requestVersion,
+    graphHash: result.graphHash,
+    variantFingerprint: result.variantFingerprint
+  };
+}
+
+async function dumpRuntimeGraph(
+  rawParams: DawnlightRuntimeViewRequest = {},
+  token?: CancellationToken
+): Promise<DawnlightRuntimeViewResult> {
+  await workspaceModelSettled();
+  const params = rawParams ?? {};
+  const resolved = runtimePackForRequest(params);
+  if (!resolved.pack) return { message: resolved.message ?? 'No shader pack is available.' };
+  const pack = resolved.pack;
+  const project = resolved.project;
+  const parity = await ensureRuntimeCatalogParity();
+  if (!parity.ok) return { message: parity.message };
+  const fingerprint = runtimeFingerprint('graph', pack, project, undefined, params);
+  const key = runtimeCacheKey('graph', pack.rootPath, fingerprint);
+  const cachedUri = runtimeUriByFingerprint.get(key);
+  if (cachedUri) {
+    const cached = runtimeCache.get(cachedUri);
+    if (cached) {
+      const cachedResult = cached.result as DawnlightAnalyzerDumpGraphResult;
+      if (cachedResult.graph) {
+        publishRuntimeDiagnostics(pack, project, runtimeResultDiagnostics(cachedResult));
+        latestRuntimeGraphs.set(pack.rootPath, {
+          uri: cached.uri,
+          packRoot: pack.rootPath,
+          fingerprint,
+          content: cached.content,
+          graph: cachedResult.graph
+        });
+      }
+      return runtimeViewResultForEntry(cached, {
+        requestVersion: cachedResult.requestVersion,
+        graphHash: cachedResult.graph?.graphHash,
+        variantFingerprint: cachedResult.graph?.variantFingerprint
+      });
+    }
+    runtimeUriByFingerprint.delete(key);
+  }
+
+  const requestVersion = ++runtimeRequestVersion;
+  const latestKey = `graph:${path.resolve(pack.rootPath)}`;
+  runtimeLatestRequests.set(latestKey, requestVersion);
+  const epoch = analyzerClient.epoch;
+  const cancellation = runtimeCancellationSignal(token);
+  let result: DawnlightAnalyzerDumpGraphResult | undefined;
+  try {
+    const analyzerParams: DawnlightAnalyzerDumpGraphParams = {
+      packRoot: pack.rootPath,
+      catalogHash: catalogState.hash,
+      requestVersion,
+      overlays: runtimeOverlays(pack, project),
+      clientSupportedVersions: [1],
+      inputs: runtimeInputs(params),
+      includeInactive: params.includeInactive ?? true
+    };
+    result = await analyzerClient.dumpGraph(analyzerParams, cancellation.signal);
+  } finally {
+    cancellation.dispose();
+  }
+  if (!result || !isRuntimeRequestCurrent(
+    latestKey, requestVersion, epoch, fingerprint, pack, project, 'graph', undefined, params
+  )) {
+    return { stale: true, requestVersion, message: 'Runtime graph request became stale or was cancelled.' };
+  }
+  if (result.catalogHash.toLowerCase() !== catalogState.hash.toLowerCase()) {
+    return { message: 'Analyzer returned a runtime graph for a different Catalog hash.' };
+  }
+  if (!result.compatible || !result.success || !result.graph) {
+    if (result.compatible) publishRuntimeDiagnostics(pack, project, runtimeResultDiagnostics(result));
+    return { requestVersion, message: runtimeFailureMessage('graph', result) };
+  }
+  publishRuntimeDiagnostics(pack, project, runtimeResultDiagnostics(result));
+  const uri = encodeRuntimeDocumentUri(
+    'dawnlight-graph',
+    { sourceUri: runtimeDocumentSourceUri(pack, params) },
+    sha256(`${fingerprint}:${result.graph.graphHash}:${epoch}`)
+  );
+  const content = renderRuntimeGraph(result, pack.rootPath);
+  runtimeCache.set({
+    uri,
+    operation: 'graph',
+    packRoot: pack.rootPath,
+    fingerprint,
+    content,
+    result
+  });
+  latestRuntimeGraphs.set(pack.rootPath, {
+    uri,
+    packRoot: pack.rootPath,
+    fingerprint,
+    content,
+    graph: result.graph
+  });
+  runtimeUriByFingerprint.set(key, uri);
+  return runtimeViewResultForEntry(runtimeCache.get(uri), {
+    requestVersion,
+    graphHash: result.graph.graphHash,
+    variantFingerprint: result.graph.variantFingerprint
+  });
+}
+
+async function explainRuntimeVariant(
+  rawParams: DawnlightRuntimeViewRequest = {},
+  token?: CancellationToken
+): Promise<DawnlightRuntimeViewResult> {
+  await workspaceModelSettled();
+  const params = rawParams ?? {};
+  const resolved = runtimePackForRequest(params);
+  if (!resolved.pack) return { message: resolved.message ?? 'No shader pack is available.' };
+  const pack = resolved.pack;
+  const project = resolved.project;
+  let programId = params.programId;
+  if (!programId) {
+    const candidates = runtimeProgramCandidates(pack, project, params);
+    if (candidates.length !== 1) {
+      return {
+        candidates,
+        message: candidates.length === 0
+          ? 'No declared program is available in this shader pack.'
+          : 'Select a program variant to explain.'
+      };
+    }
+    programId = candidates[0].programId;
+  }
+  const parity = await ensureRuntimeCatalogParity();
+  if (!parity.ok) return { message: parity.message };
+  const fingerprint = runtimeFingerprint('variant', pack, project, programId, params);
+  const key = runtimeCacheKey('variant', pack.rootPath, fingerprint, programId);
+  const cachedUri = runtimeUriByFingerprint.get(key);
+  if (cachedUri) {
+    const cached = runtimeCache.get(cachedUri);
+    if (cached) {
+      const cachedResult = cached.result as DawnlightAnalyzerExplainVariantResult;
+      return runtimeViewResultForEntry(cached, {
+        requestVersion: cachedResult.requestVersion,
+        variantFingerprint: cachedResult.explanation?.variantFingerprint
+      });
+    }
+    runtimeUriByFingerprint.delete(key);
+  }
+
+  const requestVersion = ++runtimeRequestVersion;
+  const latestKey = `variant:${path.resolve(pack.rootPath)}:${programId}`;
+  runtimeLatestRequests.set(latestKey, requestVersion);
+  const epoch = analyzerClient.epoch;
+  const cancellation = runtimeCancellationSignal(token);
+  let result: DawnlightAnalyzerExplainVariantResult | undefined;
+  try {
+    const analyzerParams: DawnlightAnalyzerExplainVariantParams = {
+      packRoot: pack.rootPath,
+      catalogHash: catalogState.hash,
+      requestVersion,
+      overlays: runtimeOverlays(pack, project),
+      clientSupportedVersions: [1],
+      inputs: runtimeInputs(params),
+      programId,
+      includeInactive: params.includeInactive ?? true
+    };
+    result = await analyzerClient.explainVariant(analyzerParams, cancellation.signal);
+  } finally {
+    cancellation.dispose();
+  }
+  if (!result || !isRuntimeRequestCurrent(
+    latestKey, requestVersion, epoch, fingerprint, pack, project, 'variant', programId, params
+  )) {
+    return { stale: true, requestVersion, message: 'Program variant request became stale or was cancelled.' };
+  }
+  if (result.catalogHash.toLowerCase() !== catalogState.hash.toLowerCase()) {
+    return { message: 'Analyzer returned a variant explanation for a different Catalog hash.' };
+  }
+  if (!result.compatible || !result.success || !result.explanation) {
+    return { requestVersion, message: runtimeFailureMessage('variant', result) };
+  }
+  const uri = encodeRuntimeDocumentUri(
+    'dawnlight-variant',
+    { sourceUri: runtimeDocumentSourceUri(pack, params), programId },
+    sha256(`${fingerprint}:${result.explanation.variantFingerprint}:${epoch}`)
+  );
+  const content = renderVariantExplanation(result, pack.rootPath);
+  runtimeCache.set({
+    uri,
+    operation: 'variant',
+    packRoot: pack.rootPath,
+    fingerprint,
+    content,
+    result
+  });
+  runtimeUriByFingerprint.set(key, uri);
+  return runtimeViewResultForEntry(runtimeCache.get(uri), {
+    requestVersion,
+    variantFingerprint: result.explanation.variantFingerprint
+  });
+}
+
+function runtimeDocumentContent(uri: string, operation: 'graph' | 'variant'): string | null {
+  const key = decodeRuntimeDocumentUri(uri);
+  if (!key || (operation === 'graph' && key.programId) || (operation === 'variant' && !key.programId)) {
+    return null;
+  }
+  return runtimeCache.get(uri)?.content ?? null;
+}
+
+function runtimeGraphNodeAt(document: TextDocument, position: { line: number; character: number }) {
+  const documentPath = uriToPath(document.uri);
+  const pack = documentPath ? discovery.findPackForDocument(documentPath) : undefined;
+  const snapshot = pack ? latestRuntimeGraphs.get(pack.rootPath) : undefined;
+  const symbol = navigation.runtimeSymbol(document, position);
+  if (!snapshot || !symbol || !['pass', 'program', 'resource'].includes(symbol.kind)) return undefined;
+  if (!runtimeCache.has(snapshot.uri)) {
+    latestRuntimeGraphs.delete(snapshot.packRoot);
+    return undefined;
+  }
+  const node = snapshot.graph.nodes.find(candidate =>
+    candidate.declaredId === symbol.id || candidate.id === symbol.id || candidate.label === symbol.id ||
+    candidate.id.endsWith(`:${symbol.id}`));
+  return node ? { snapshot, symbol, node } : undefined;
+}
+
+function runtimeGraphDefinition(
+  document: TextDocument,
+  position: { line: number; character: number }
+): Location | undefined {
+  const context = runtimeGraphNodeAt(document, position);
+  if (!context) return undefined;
+  const needle = `"id": ${JSON.stringify(context.node.id)}`;
+  const line = Math.max(0, context.snapshot.content.split('\n').findIndex(item => item.includes(needle)));
+  return Location.create(context.snapshot.uri, Range.create(line, 0, line, Math.max(1, needle.length)));
+}
+
+function runtimeGraphHover(
+  document: TextDocument,
+  position: { line: number; character: number }
+) {
+  const context = runtimeGraphNodeAt(document, position);
+  if (!context) return null;
+  const incoming = context.snapshot.graph.edges.filter(edge => edge.to === context.node.id).length;
+  const outgoing = context.snapshot.graph.edges.filter(edge => edge.from === context.node.id).length;
+  const events = context.snapshot.graph.events.filter(event => event.nodeId === context.node.id).length;
+  const hazards = context.snapshot.graph.hazards.filter(hazard =>
+    hazard.nodeIds.includes(context.node.id));
+  return {
+    contents: {
+      kind: MarkupKind.Markdown,
+      value: [
+        `**Runtime graph node** \`${context.node.id}\``,
+        '',
+        `- State: \`${context.node.active ? 'active' : 'inactive'}\``,
+        `- Kind: \`${context.node.kind}\``,
+        context.node.order === undefined ? undefined : `- Execution order: \`${context.node.order}\``,
+        `- Edges: \`${incoming} incoming / ${outgoing} outgoing\``,
+        `- Events: \`${events}\``,
+        `- Hazards: \`${hazards.length}\``,
+        `- Graph hash: \`${context.snapshot.graph.graphHash}\``
+      ].filter(line => line !== undefined).join('\n')
+    },
+    range: context.symbol.range
+  };
+}
+
+async function workspaceModelSettled(): Promise<void> {
+  let observed: Promise<void>;
+  do {
+    observed = workspaceModelPromise;
+    await observed;
+  } while (observed !== workspaceModelPromise);
 }
 
 function publishFastDiagnostics(changedPaths: readonly string[] = []): void {
@@ -418,7 +1039,7 @@ function publishFastDiagnostics(changedPaths: readonly string[] = []): void {
 }
 
 function rebuildComposition(changedPaths: readonly string[] = []): void {
-  void composition.rebuild(discovery.snapshot).then(result => {
+  workspaceModelPromise = composition.rebuild(discovery.snapshot).then(result => {
     if (result.applied) {
       return symbolIndex.rebuild(result.snapshot, discovery.snapshot, changedPaths).then(indexResult => {
         if (indexResult.applied) publishFastDiagnostics(changedPaths);
@@ -426,12 +1047,13 @@ function rebuildComposition(changedPaths: readonly string[] = []): void {
       });
     }
     return undefined;
-  }).catch(error => {
+  }).then(() => undefined).catch(error => {
     connection.console.error(`Could not compose Dawnlight workspace: ${(error as Error).message}`);
   });
 }
 
 function notifyWorkspaceChanged(snapshot: ReturnType<WorkspacePackDiscovery['refresh']>): void {
+  clearAllRuntimeState();
   const removedAnalyzerUris: string[] = [];
   for (const uri of analyzerDiagnostics.keys()) {
     const filePath = uriToPath(uri);
@@ -635,11 +1257,20 @@ connection.onRequest(LSP_METHODS.catalogSnapshot, () => ({
 }));
 connection.onRequest(LSP_METHODS.catalogDocument, params =>
   catalogNavigation.document((params as { uri: string }).uri));
+connection.onRequest(LSP_METHODS.dumpGraph, (params: DawnlightRuntimeViewRequest = {}, token) =>
+  dumpRuntimeGraph(params, token));
+connection.onRequest(LSP_METHODS.explainVariant, (params: DawnlightRuntimeViewRequest = {}, token) =>
+  explainRuntimeVariant(params, token));
+connection.onRequest(LSP_METHODS.graphDocument, (params: { uri?: string } | null = {}) =>
+  params && typeof params.uri === 'string' ? runtimeDocumentContent(params.uri, 'graph') : null);
+connection.onRequest(LSP_METHODS.variantDocument, (params: { uri?: string } | null = {}) =>
+  params && typeof params.uri === 'string' ? runtimeDocumentContent(params.uri, 'variant') : null);
 connection.onRequest(LSP_METHODS.analyzerStatus, () => analyzerClient.status);
 connection.onRequest(LSP_METHODS.analyzerCatalog, () => refreshAnalyzerCatalog());
 connection.onRequest(LSP_METHODS.restartAnalyzer, async () => {
   analyzerRequestVersion += 1;
   analyzerLatestRequests.clear();
+  clearAllRuntimeState();
   analyzerDiagnostics.clear();
   await analyzerClient.restart();
   analyzerCatalogStatus = {
@@ -669,10 +1300,11 @@ connection.onCompletion(async params => {
 
 connection.onDefinition(params => {
   const document = documents.get(params.textDocument.uri);
-  return document
-    ? navigation.definition(document, params.position) ??
-      catalogNavigation.definition(document, params.position)
-    : null;
+  if (!document) return null;
+  const definitions = navigation.definition(document, params.position) ??
+    catalogNavigation.definition(document, params.position) ?? [];
+  const runtime = runtimeGraphDefinition(document, params.position);
+  return runtime ? [...definitions, runtime] : definitions.length > 0 ? definitions : null;
 });
 
 connection.onReferences(params => {
@@ -716,7 +1348,7 @@ connection.onHover(async params => {
     navigation.hover(document, params.position),
     catalogNavigation.hover(document, params.position)
   );
-  return mergeHover(schemaHover, dynamicHover);
+  return mergeHover(mergeHover(schemaHover, dynamicHover), runtimeGraphHover(document, params.position));
 });
 
 documents.onDidOpen(event => {
@@ -724,6 +1356,7 @@ documents.onDidOpen(event => {
   documentStore.open(event.document.uri, event.document.getText(), event.document.version);
   dynamicCompletion.invalidate(documentPath ? [documentPath] : []);
   if (documentPath) {
+    invalidateRuntimeForPath(documentPath);
     discovery.locatePackForDocument(documentPath);
     const previous = discovery.snapshot;
     const next = discovery.setDocumentOverlay(documentPath, event.document.getText());
@@ -738,6 +1371,7 @@ documents.onDidChangeContent(event => {
   const documentPath = uriToPath(event.document.uri);
   dynamicCompletion.invalidate(documentPath ? [documentPath] : []);
   if (documentPath) {
+    invalidateRuntimeForPath(documentPath);
     const previous = discovery.snapshot;
     const next = discovery.setDocumentOverlay(documentPath, event.document.getText());
     if (next !== previous) notifyWorkspaceChanged(next);
@@ -759,6 +1393,7 @@ documents.onDidClose(event => {
   documentStore.close(event.document.uri);
   dynamicCompletion.invalidate(documentPath ? [documentPath] : []);
   if (documentPath) {
+    invalidateRuntimeForPath(documentPath);
     const previous = discovery.snapshot;
     const next = discovery.clearDocumentOverlay(documentPath);
     if (next !== previous) notifyWorkspaceChanged(next);
